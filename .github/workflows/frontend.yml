@@ -1,19 +1,12 @@
 name: CI/CD - frontend
 
 on:
-  # TEMPORARILY DISABLED — EKS cluster is offline. Re-enable (uncomment) to
-  # resume building/publishing images and deploying via Argo CD.
-  # push:
-  #   branches: [main]
-  #   paths:
-  #     - "frontend/**"
-  #     - ".github/workflows/frontend.yml"
-  # pull_request:
-  #   branches: [main]
-  #   paths:
-  #     - "frontend/**"
-  #     - ".github/workflows/frontend.yml"
-  workflow_dispatch:  # Manual trigger only
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 1.2.3)"
+        required: true
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -25,58 +18,38 @@ permissions:
   pull-requests: write
 
 jobs:
-  # ───────────── PR — sequential: lint → trivy ─────────────
-  lint:
-    if: github.event_name == 'pull_request'
-    uses: infraGUID/infraguid-workflows/.github/workflows/_lint.yml@main
+  sast:
+    uses: infraGUID/infraguid-workflows/.github/workflows/_sast.yml@main
     with:
       service-path: frontend
-      runtime: static
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   trivy:
-    needs: [lint]
-    if: github.event_name == 'pull_request'
+    needs: [sast]
     uses: infraGUID/infraguid-workflows/.github/workflows/_docker-build.yml@main
     with:
       service-name: frontend
       dockerfile: frontend/Dockerfile
       context: .
 
-  pr-check:
-    name: PR Quality Gate
-    needs: [trivy]
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "All checks passed"
-
-  # ───────────── Push to main — build, publish & deploy ─────────────
-  prepare:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    outputs:
-      sha: ${{ steps.sha.outputs.short }}
-    steps:
-      - id: sha
-        run: echo "short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
-
   publish:
-    needs: [prepare]
-    if: github.event_name == 'push'
+    needs: [trivy]
     uses: infraGUID/infraguid-workflows/.github/workflows/_docker-publish.yml@main
     with:
       image-name: infragui/frontend
-      tag: ${{ needs.prepare.outputs.sha }}
+      tag: v${{ inputs.version }}
+      push-latest: true
       dockerfile: frontend/Dockerfile
       context: .
 
   cd:
-    needs: [prepare, publish]
+    needs: [publish]
     if: needs.publish.result == 'success'
     uses: infraGUID/infraguid-workflows/.github/workflows/_cd.yml@main
     with:
       chart: frontend
-      image-tag: ${{ needs.prepare.outputs.sha }}
+      image-tag: v${{ inputs.version }}
     secrets:
       ARGOCD_DEPLOY_TOKEN: ${{ secrets.ARGOCD_DEPLOY_TOKEN }}
 

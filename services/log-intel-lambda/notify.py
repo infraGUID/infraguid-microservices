@@ -53,7 +53,14 @@ Summary:
 Suggested fix:
 {summary['suggested_fix']}
 
-— Triggered automatically from CloudWatch pod logs. Notify-only; remediate manually.
+Suggested action (APPROVAL REQUIRED — review before running):
+    {summary.get('suggested_command', '(none proposed)')}
+
+Investigation:
+{summary.get('investigation_trail', '(not recorded)')}
+
+— Triggered automatically from CloudWatch pod logs. The agent is read-only: the
+  action above is a proposal for a human to approve and run manually.
 """
 
     _client().publish(TopicArn=TOPIC_ARN, Subject=subject, Message=body)

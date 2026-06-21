@@ -43,16 +43,47 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Package and deploy
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build and publish dependencies layer
+        env:
+          ARTIFACTS_BUCKET: ${{ vars.LAMBDA_ARTIFACTS_BUCKET }}
+          FUNCTION_NAME: infraguidai-prod-log-intel
+          LAYER_NAME: infraguidai-prod-log-intel-deps
+        run: |
+          cd services/log-intel-lambda
+          rm -rf build/layer && mkdir -p build/layer/python
+          pip install -r requirements.txt -t build/layer/python \
+            --platform manylinux2014_x86_64 --python-version 3.12 \
+            --implementation cp --only-binary=:all: --upgrade
+          (cd build/layer && zip -r /tmp/log-intel-deps-layer.zip python)
+          LAYER_KEY="log-intel-lambda/layer-${GITHUB_SHA::7}.zip"
+          aws s3 cp /tmp/log-intel-deps-layer.zip "s3://$ARTIFACTS_BUCKET/$LAYER_KEY"
+          LAYER_ARN=$(aws lambda publish-layer-version \
+            --layer-name "$LAYER_NAME" \
+            --compatible-runtimes python3.12 \
+            --content "S3Bucket=$ARTIFACTS_BUCKET,S3Key=$LAYER_KEY" \
+            --query 'LayerVersionArn' --output text)
+          echo "LAYER_ARN=$LAYER_ARN" >> "$GITHUB_ENV"
+
+      - name: Package and deploy function
         env:
           ARTIFACTS_BUCKET: ${{ vars.LAMBDA_ARTIFACTS_BUCKET }}
           FUNCTION_NAME: infraguidai-prod-log-intel
         run: |
           cd services/log-intel-lambda
-          zip -r /tmp/log-intel-lambda.zip . -x '*.pyc' '__pycache__/*' 'README.md'
+          zip -r /tmp/log-intel-lambda.zip . \
+            -x '*.pyc' '__pycache__/*' 'README.md' 'build/*' 'requirements.txt'
           KEY="log-intel-lambda/${GITHUB_SHA::7}.zip"
           aws s3 cp /tmp/log-intel-lambda.zip "s3://$ARTIFACTS_BUCKET/$KEY"
           aws lambda update-function-code \
             --function-name "$FUNCTION_NAME" \
             --s3-bucket "$ARTIFACTS_BUCKET" \
             --s3-key "$KEY"
+          aws lambda wait function-updated --function-name "$FUNCTION_NAME"
+          aws lambda update-function-configuration \
+            --function-name "$FUNCTION_NAME" \
+            --layers "$LAYER_ARN"

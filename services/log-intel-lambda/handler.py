@@ -1,9 +1,11 @@
 """CS-02 Kubernetes Log Intelligence Agent — Lambda entrypoint.
 
 Event-triggered: a CloudWatch Logs subscription filter invokes this function
-ONLY on pod-log lines matching the anomaly pattern. For each detected incident
-it summarizes via Bedrock Claude, classifies severity (P1-P4), and publishes a
-notification to SNS. Notify-only; remediation is manual.
+ONLY on pod-log lines matching the anomaly pattern. For each detected incident a
+LangGraph ReAct agent (Bedrock Claude) investigates read-only across CloudWatch
+logs, the live Kubernetes API, metrics, and ArgoCD, classifies severity (P1-P4),
+and publishes a notification to SNS that PROPOSES a remediation for human
+approval. Notify-only; the agent never mutates the cluster.
 """
 from __future__ import annotations
 
@@ -12,9 +14,9 @@ import gzip
 import json
 import logging
 
+from agent import run_agent
 from collect import enrich_context, extract_incidents
 from notify import publish_alert
-from summarize import summarize_incident
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -40,7 +42,7 @@ def lambda_handler(event, context):  # noqa: ANN001, ARG001
     for incident in incidents:
         try:
             enrich_context(incident, log_group)
-            summary = summarize_incident(incident)
+            summary = run_agent(incident)
             publish_alert(summary, incident)
             alerted.append({"pod": incident["pod"], "severity": summary["severity"]})
         except Exception:  # noqa: BLE001 - isolate failures per incident
