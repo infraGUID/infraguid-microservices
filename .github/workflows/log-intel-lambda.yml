@@ -1,16 +1,19 @@
 name: CI/CD - log-intel-lambda
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "services/log-intel-lambda/**"
-      - ".github/workflows/log-intel-lambda.yml"
-  pull_request:
-    branches: [main]
-    paths:
-      - "services/log-intel-lambda/**"
-      - ".github/workflows/log-intel-lambda.yml"
+  # TEMPORARILY DISABLED — EKS cluster is offline. Re-enable (uncomment) to
+  # resume building/publishing images and deploying.
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "services/log-intel-lambda/**"
+  #     - ".github/workflows/log-intel-lambda.yml"
+  # pull_request:
+  #   branches: [main]
+  #   paths:
+  #     - "services/log-intel-lambda/**"
+  #     - ".github/workflows/log-intel-lambda.yml"
+  workflow_dispatch:  # Manual trigger only
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

@@ -1,18 +1,21 @@
 name: CI/CD - rag-service
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "services/rag-service/**"
-      - "shared/**"
-      - ".github/workflows/rag-service.yml"
-  pull_request:
-    branches: [main]
-    paths:
-      - "services/rag-service/**"
-      - "shared/**"
-      - ".github/workflows/rag-service.yml"
+  # TEMPORARILY DISABLED — EKS cluster is offline. Re-enable (uncomment) to
+  # resume building/publishing images and deploying via Argo CD.
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "services/rag-service/**"
+  #     - "shared/**"
+  #     - ".github/workflows/rag-service.yml"
+  # pull_request:
+  #   branches: [main]
+  #   paths:
+  #     - "services/rag-service/**"
+  #     - "shared/**"
+  #     - ".github/workflows/rag-service.yml"
+  workflow_dispatch:  # Manual trigger only
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

@@ -1,18 +1,21 @@
 name: CI/CD - chat-service
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "services/chat-service/**"
-      - "shared/**"
-      - ".github/workflows/chat-service.yml"
-  pull_request:
-    branches: [main]
-    paths:
-      - "services/chat-service/**"
-      - "shared/**"
-      - ".github/workflows/chat-service.yml"
+  # TEMPORARILY DISABLED — EKS cluster is offline. Re-enable (uncomment) to
+  # resume building/publishing images and deploying via Argo CD.
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "services/chat-service/**"
+  #     - "shared/**"
+  #     - ".github/workflows/chat-service.yml"
+  # pull_request:
+  #   branches: [main]
+  #   paths:
+  #     - "services/chat-service/**"
+  #     - "shared/**"
+  #     - ".github/workflows/chat-service.yml"
+  workflow_dispatch:  # Manual trigger only
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
