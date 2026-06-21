@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy import text
 
@@ -57,6 +59,20 @@ async def dispose_engine() -> None:
 
 async def get_db_session():
     """FastAPI dependency that yields an async database session."""
+    factory = _get_session_factory()
+    async with factory() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+
+
+@asynccontextmanager
+async def session_scope():
+    """Async session context for code outside the FastAPI request lifecycle
+    (e.g. background workers). Commits on success, rolls back on error."""
     factory = _get_session_factory()
     async with factory() as session:
         try:

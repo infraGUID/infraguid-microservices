@@ -10,7 +10,7 @@ from infraguid_common.observability.logger import get_logger
 from infraguid_common.vectorstore.pgvector_store import PgVectorStore
 
 from app.clients.agent_client import list_agent_tools
-from app.clients.ingestion_client import trigger_ingest
+from app.clients.ingestion_client import get_ingest_status, trigger_ingest
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -23,6 +23,16 @@ async def ingest() -> dict:
         return await trigger_ingest()
     except httpx.HTTPStatusError as exc:
         raise HTTPException(status_code=exc.response.status_code, detail=f"Ingestion failed: {exc.response.text}") from exc
+    except httpx.HTTPError as exc:
+        logger.error("ingestion_service_unreachable", error=str(exc))
+        raise HTTPException(status_code=503, detail=f"Ingestion service unreachable: {exc}") from exc
+
+
+@router.get("/ingest/status")
+async def ingest_status() -> dict:
+    """Proxy to ingestion-service for live queue depth + last run result."""
+    try:
+        return await get_ingest_status()
     except httpx.HTTPError as exc:
         logger.error("ingestion_service_unreachable", error=str(exc))
         raise HTTPException(status_code=503, detail=f"Ingestion service unreachable: {exc}") from exc

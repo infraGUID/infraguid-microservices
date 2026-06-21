@@ -94,16 +94,53 @@ async function refresh() {
   }
 }
 
+async function pollIngestStatus() {
+  const INTERVAL_MS = 4000;
+  const TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
+  const start = Date.now();
+
+  while (Date.now() - start < TIMEOUT_MS) {
+    await new Promise((r) => setTimeout(r, INTERVAL_MS));
+    try {
+      const status = await AuthManager.safeFetchJson("/api/admin/ingest/status");
+      const busy = (status.queue?.pending ?? 0) + (status.queue?.in_flight ?? 0) > 0;
+      if (busy) {
+        const inFlight = status.queue.in_flight > 0;
+        showAlert(inFlight ? "Ingestion running — embedding documents via Bedrock…" : "Ingestion queued — waiting for worker…");
+        continue;
+      }
+      // Queue is drained — last_run has the final result.
+      return status.last_run ?? null;
+    } catch {
+      // Transient poll failure — keep waiting.
+    }
+  }
+  return null; // timed out
+}
+
 async function ingest() {
   ingestButton.disabled = true;
-  showAlert(
-    "Ingestion started. This can take several minutes because embeddings are generated through Bedrock."
-  );
+  showAlert("Queuing ingestion job…");
   try {
     const data = await AuthManager.safeFetchJson("/api/admin/ingest", { method: "POST" });
-    showAlert(
-      `Ingestion ${data.status}: ${data.documents_processed || 0} documents, ${data.chunks_created || 0} chunks.`
-    );
+
+    if (data.status === "queued") {
+      showAlert("Ingestion queued — waiting for worker to pick it up…");
+      const result = await pollIngestStatus();
+      if (result) {
+        const summary = result.status === "success"
+          ? `Ingestion complete: ${result.documents_processed} documents, ${result.chunks_created} chunks.`
+          : `Ingestion ended with status "${result.status}".${result.error_message ? " Error: " + result.error_message : ""}`;
+        showAlert(summary);
+      } else {
+        showAlert("Ingestion is still running in the background — refresh the page later to see results.");
+      }
+    } else {
+      // Synchronous fallback (no SQS in local dev).
+      showAlert(
+        `Ingestion ${data.status}: ${data.documents_processed || 0} documents, ${data.chunks_created || 0} chunks.`
+      );
+    }
     await refresh();
   } catch (error) {
     showAlert(error.message);

@@ -59,6 +59,21 @@ class Settings(BaseSettings):
     # TTL is refreshed on every message; idle sessions expire automatically.
     session_ttl_seconds: int = Field(default=7200, alias="SESSION_TTL_SECONDS")  # 2 hours
 
+    # SQS — async document ingestion. When the queue URL is empty (local dev),
+    # /ingest runs synchronously instead of enqueuing (graceful fallback).
+    sqs_ingestion_queue_url: str = Field(default="", alias="SQS_INGESTION_QUEUE_URL")
+    # The consumer loop that drains the queue. Disable on API-only replicas.
+    ingestion_worker_enabled: bool = Field(default=True, alias="INGESTION_WORKER_ENABLED")
+    # Long-poll wait (≤20s, the SQS max) and per-message visibility window. The
+    # visibility timeout must exceed the worst-case ingestion run so a message
+    # is not redelivered while still being processed.
+    sqs_wait_time_seconds: int = Field(default=20, alias="SQS_WAIT_TIME_SECONDS")
+    sqs_visibility_timeout: int = Field(default=900, alias="SQS_VISIBILITY_TIMEOUT")  # 15 min
+
+    @property
+    def sqs_ingestion_enabled(self) -> bool:
+        return bool(self.sqs_ingestion_queue_url)
+
     @property
     def bedrock_configured(self) -> bool:
         has_explicit_credentials = bool(self.aws_access_key_id and self.aws_secret_access_key)

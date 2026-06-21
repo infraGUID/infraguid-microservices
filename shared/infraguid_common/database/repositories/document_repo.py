@@ -80,6 +80,24 @@ class DocumentRepository:
             for row in rows
         ]
 
+    async def latest_ingestion_log(self) -> dict | None:
+        stmt = (
+            select(IngestionLog)
+            .order_by(IngestionLog.ingested_at.desc())
+            .limit(1)
+        )
+        result = await self._session.execute(stmt)
+        row = result.scalar_one_or_none()
+        if row is None:
+            return None
+        return {
+            "status": row.status,
+            "documents_processed": row.documents_processed,
+            "chunks_created": row.chunks_created,
+            "error_message": row.error_message,
+            "completed_at": row.ingested_at.isoformat(),
+        }
+
     async def counts(self) -> dict:
         doc_count_result = await self._session.execute(
             select(func.count()).select_from(KnowledgeDocument)
