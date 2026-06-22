@@ -1,4 +1,5 @@
 import json
+import re
 from functools import lru_cache
 from typing import Any
 
@@ -18,14 +19,32 @@ AGENT_SYSTEM_PROMPT = (
     "(e.g. 'search_knowledge_base', 'lookup_runbook') to ground your answer before "
     "responding to any technical question about company policies, AWS standards, "
     "incidents, or Terraform. Never fabricate tool calls as text or code blocks — "
-    "use the native tool-calling interface."
+    "use the native tool-calling interface.\n\n"
+    "Do your reasoning silently. NEVER expose internal reasoning to the user: do not "
+    "emit <thinking> tags, scratchpads, or any meta narration about what you are about "
+    "to do. Reply with only the final, user-facing answer."
 )
+
+# The model occasionally wraps internal reasoning in <thinking>...</thinking> tags
+# inside its visible text. These must never reach the user, so we strip them from
+# every AIMessage's rendered text (covers both the final answer and trace previews).
+_THINKING_BLOCK = re.compile(r"<thinking\b[^>]*>.*?</thinking\s*>", re.IGNORECASE | re.DOTALL)
+# Defensive: a thinking block left unclosed (e.g. truncated output) — drop to end.
+_THINKING_UNCLOSED = re.compile(r"<thinking\b[^>]*>.*\Z", re.IGNORECASE | re.DOTALL)
+
+
+def _strip_thinking(text: str) -> str:
+    cleaned = _THINKING_BLOCK.sub("", text)
+    cleaned = _THINKING_UNCLOSED.sub("", cleaned)
+    # Collapse blank-line runs left behind by removed blocks.
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
 
 
 def _message_text(message: Any) -> str:
     content = getattr(message, "content", "")
     if isinstance(content, str):
-        return content.strip()
+        return _strip_thinking(content)
     if isinstance(content, list):
         parts: list[str] = []
         for block in content:
@@ -33,8 +52,8 @@ def _message_text(message: Any) -> str:
                 parts.append(block.get("text", ""))
             elif isinstance(block, str):
                 parts.append(block)
-        return "\n".join(p for p in parts if p).strip()
-    return str(content).strip()
+        return _strip_thinking("\n".join(p for p in parts if p))
+    return _strip_thinking(str(content))
 
 
 def _tool_message_str(message: ToolMessage) -> str:

@@ -4,7 +4,7 @@ Event-triggered AWS Lambda that analyzes Kubernetes pod-log anomalies after
 deployments and notifies the on-call engineer via SNS. Provisioned by
 `terraform/modules/log-intel-lambda`.
 
-It is a **LangGraph ReAct agent** (Bedrock Claude via `ChatBedrockConverse`):
+It is a **LangGraph ReAct agent** (Bedrock Amazon Nova Pro via `ChatBedrockConverse`):
 for each detected anomaly it reasons and calls read-only tools to investigate,
 then emits an alert that **proposes a remediation for a human to approve**. The
 agent never mutates the cluster.

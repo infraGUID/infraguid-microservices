@@ -1,6 +1,6 @@
 """LangGraph ReAct agent that investigates a Kubernetes incident.
 
-Replaces the previous single-shot Bedrock call. The agent (Claude via
+Replaces the previous single-shot Bedrock call. The agent (Amazon Nova Pro via
 `ChatBedrockConverse`) reasons and calls read-only tools — CloudWatch logs, the
 live Kubernetes API, CloudWatch metrics, and ArgoCD — until it can explain the
 incident, then returns a typed `IncidentReport`. It is read-only: it proposes a
@@ -24,7 +24,7 @@ from tools import get_tools
 
 logger = logging.getLogger()
 
-MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "us.anthropic.claude-3-5-sonnet-20241022-v2:0")
+MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "amazon.nova-pro-v1:0")
 MAX_AGENT_ITERATIONS = int(os.environ.get("MAX_AGENT_ITERATIONS", "6"))
 
 
@@ -108,8 +108,4 @@ def run_agent(incident: dict) -> dict:
         return report.model_dump()
     except Exception as exc:  # noqa: BLE001 - never fail the alert on agent errors
         logger.warning("ReAct agent failed, using heuristic: %s", exc)
-        fallback = heuristic_summary(incident)
-        fallback.setdefault("suggested_command", "kubectl describe pod -n "
-                            f"{incident['namespace']} {incident['pod']}")
-        fallback.setdefault("investigation_trail", "agent unavailable; heuristic fallback")
-        return fallback
+        return heuristic_summary(incident)

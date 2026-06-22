@@ -2,7 +2,7 @@
 
 Event-triggered: a CloudWatch Logs subscription filter invokes this function
 ONLY on pod-log lines matching the anomaly pattern. For each detected incident a
-LangGraph ReAct agent (Bedrock Claude) investigates read-only across CloudWatch
+LangGraph ReAct agent (Bedrock Amazon Nova Pro) investigates read-only across CloudWatch
 logs, the live Kubernetes API, metrics, and ArgoCD, classifies severity (P1-P4),
 and publishes a notification to SNS that PROPOSES a remediation for human
 approval. Notify-only; the agent never mutates the cluster.
