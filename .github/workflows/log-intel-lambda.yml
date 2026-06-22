@@ -1,38 +1,109 @@
 name: CI/CD - log-intel-lambda
 
+# Same model as the container services, adapted for a Lambda (no image/registry):
+# Pull request to main  -> validate only (SAST -> SCA -> lint), then a PR comment.
+# Merge to main         -> nothing runs (no push trigger by design).
+# workflow_dispatch     -> the only path that ships: version guard -> build deps
+#                          layer, package & update the function, publish an
+#                          immutable Lambda version -> push the git release tag.
 on:
-  # TEMPORARILY DISABLED — EKS cluster is offline. Re-enable (uncomment) to
-  # resume building/publishing images and deploying.
-  # push:
-  #   branches: [main]
-  #   paths:
-  #     - "services/log-intel-lambda/**"
-  #     - ".github/workflows/log-intel-lambda.yml"
-  # pull_request:
-  #   branches: [main]
-  #   paths:
-  #     - "services/log-intel-lambda/**"
-  #     - ".github/workflows/log-intel-lambda.yml"
-  workflow_dispatch:  # Manual trigger only
+  pull_request:
+    branches: [main]
+    paths:
+      - "services/log-intel-lambda/**"
+      - ".github/workflows/log-intel-lambda.yml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 1.2.3)"
+        required: true
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   id-token: write
-  contents: read
+  contents: write
+  pull-requests: write
 
 jobs:
+  # ───────────────── release guard (dispatch only) ─────────────────
+  version-check:
+    if: github.event_name == 'workflow_dispatch'
+    uses: infraGUID/infraguid-workflows/.github/workflows/_version-check.yml@main
+    with:
+      service-name: log-intel-lambda
+      version: ${{ inputs.version }}
+
+  # ───────────────── validation (PR only) ─────────────────
+  sast:
+    if: github.event_name == 'pull_request'
+    uses: infraGUID/infraguid-workflows/.github/workflows/_sast.yml@main
+    with:
+      service-path: services/log-intel-lambda
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  sca:
+    if: github.event_name == 'pull_request'
+    needs: [sast]
+    uses: infraGUID/infraguid-workflows/.github/workflows/_sca.yml@main
+    with:
+      service-name: log-intel-lambda
+      service-path: services/log-intel-lambda
+    secrets:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
   lint:
     if: github.event_name == 'pull_request'
+    needs: [sca]
     uses: infraGUID/infraguid-workflows/.github/workflows/_lint.yml@main
     with:
       service-path: services/log-intel-lambda
       runtime: python
 
+  # ───────────────── security alerts (PR only, on findings) ─────────────────
+  notify-sast:
+    if: ${{ always() && github.event_name == 'pull_request' && needs.sast.outputs.quality-gate-failed == 'true' }}
+    needs: [sast]
+    uses: infraGUID/infraguid-workflows/.github/workflows/_notify.yml@main
+    with:
+      subject: "[SAST] SonarCloud quality gate failed — log-intel-lambda"
+      body: "The SonarCloud SAST quality gate failed on this pull request. Review the findings in SonarCloud before merging."
+      service-name: log-intel-lambda
+    secrets:
+      BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+      NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+
+  notify-sca:
+    if: ${{ always() && github.event_name == 'pull_request' && (needs.sca.outputs.critical-found == 'true' || needs.sca.result == 'failure') }}
+    needs: [sca]
+    uses: infraGUID/infraguid-workflows/.github/workflows/_notify.yml@main
+    with:
+      subject: "[Snyk] Critical dependency vulnerabilities — log-intel-lambda"
+      body: "Snyk SCA found CRITICAL dependency vulnerabilities on this pull request. Review and remediate before merging."
+      service-name: log-intel-lambda
+    secrets:
+      BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+      NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+
+  # ───────────────── PR comment (PR only) ─────────────────
+  # No image to scan for a Lambda, so the Trivy column shows as skipped.
+  pr-comment:
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    needs: [sast, sca, lint]
+    uses: infraGUID/infraguid-workflows/.github/workflows/_pr-comment.yml@main
+    with:
+      service-name: log-intel-lambda
+      sast: ${{ needs.sast.result }}
+      sca: ${{ needs.sca.result }}
+
+  # ───────────────── deploy + release (dispatch only) ─────────────────
   deploy:
-    if: github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch'
+    needs: [version-check]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -51,8 +122,8 @@ jobs:
       - name: Build and publish dependencies layer
         env:
           ARTIFACTS_BUCKET: ${{ vars.LAMBDA_ARTIFACTS_BUCKET }}
-          FUNCTION_NAME: infraguidai-prod-log-intel
           LAYER_NAME: infraguidai-prod-log-intel-deps
+          VERSION: ${{ inputs.version }}
         run: |
           cd services/log-intel-lambda
           rm -rf build/layer && mkdir -p build/layer/python
@@ -60,7 +131,7 @@ jobs:
             --platform manylinux2014_x86_64 --python-version 3.12 \
             --implementation cp --only-binary=:all: --upgrade
           (cd build/layer && zip -r /tmp/log-intel-deps-layer.zip python)
-          LAYER_KEY="log-intel-lambda/layer-${GITHUB_SHA::7}.zip"
+          LAYER_KEY="log-intel-lambda/layer-v${VERSION}.zip"
           aws s3 cp /tmp/log-intel-deps-layer.zip "s3://$ARTIFACTS_BUCKET/$LAYER_KEY"
           LAYER_ARN=$(aws lambda publish-layer-version \
             --layer-name "$LAYER_NAME" \
@@ -69,15 +140,16 @@ jobs:
             --query 'LayerVersionArn' --output text)
           echo "LAYER_ARN=$LAYER_ARN" >> "$GITHUB_ENV"
 
-      - name: Package and deploy function
+      - name: Package, deploy and publish a Lambda version
         env:
           ARTIFACTS_BUCKET: ${{ vars.LAMBDA_ARTIFACTS_BUCKET }}
           FUNCTION_NAME: infraguidai-prod-log-intel
+          VERSION: ${{ inputs.version }}
         run: |
           cd services/log-intel-lambda
           zip -r /tmp/log-intel-lambda.zip . \
             -x '*.pyc' '__pycache__/*' 'README.md' 'build/*' 'requirements.txt'
-          KEY="log-intel-lambda/${GITHUB_SHA::7}.zip"
+          KEY="log-intel-lambda/v${VERSION}.zip"
           aws s3 cp /tmp/log-intel-lambda.zip "s3://$ARTIFACTS_BUCKET/$KEY"
           aws lambda update-function-code \
             --function-name "$FUNCTION_NAME" \
@@ -87,3 +159,16 @@ jobs:
           aws lambda update-function-configuration \
             --function-name "$FUNCTION_NAME" \
             --layers "$LAYER_ARN"
+          aws lambda wait function-updated --function-name "$FUNCTION_NAME"
+          # Cut an immutable, retrievable snapshot of this release.
+          aws lambda publish-version \
+            --function-name "$FUNCTION_NAME" \
+            --description "release v${VERSION}"
+
+  tag:
+    if: github.event_name == 'workflow_dispatch'
+    needs: [deploy]
+    uses: infraGUID/infraguid-workflows/.github/workflows/_tag.yml@main
+    with:
+      service-name: log-intel-lambda
+      version: ${{ inputs.version }}

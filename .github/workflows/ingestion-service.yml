@@ -1,6 +1,16 @@
 name: CI/CD - ingestion-service
 
+# Pull request to main  -> validate only (SAST -> SCA -> build image + Trivy),
+#                          then post a summary comment. Nothing is published.
+# Merge to main         -> nothing runs (no push trigger by design).
+# workflow_dispatch     -> the only path that publishes: version guard -> the same
+#                          validation -> push image to ECR -> push git tag -> CD.
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "services/ingestion-service/**"
+      - ".github/workflows/ingestion-service.yml"
   workflow_dispatch:
     inputs:
       version:
@@ -10,7 +20,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   id-token: write
@@ -18,7 +28,17 @@ permissions:
   pull-requests: write
 
 jobs:
+  # ───────────────── release guard (dispatch only) ─────────────────
+  version-check:
+    if: github.event_name == 'workflow_dispatch'
+    uses: infraGUID/infraguid-workflows/.github/workflows/_version-check.yml@main
+    with:
+      service-name: ingestion-service
+      version: ${{ inputs.version }}
+
+  # ───────────────── validation (PR only) ─────────────────
   sast:
+    if: github.event_name == 'pull_request'
     uses: infraGUID/infraguid-workflows/.github/workflows/_sast.yml@main
     with:
       service-path: services/ingestion-service
@@ -26,6 +46,7 @@ jobs:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   sca:
+    if: github.event_name == 'pull_request'
     needs: [sast]
     uses: infraGUID/infraguid-workflows/.github/workflows/_sca.yml@main
     with:
@@ -35,6 +56,7 @@ jobs:
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
   trivy:
+    if: github.event_name == 'pull_request'
     needs: [sca]
     uses: infraGUID/infraguid-workflows/.github/workflows/_docker-build.yml@main
     with:
@@ -42,8 +64,46 @@ jobs:
       dockerfile: services/ingestion-service/Dockerfile
       context: .
 
+  # ───────────────── security alerts (PR only, on findings) ─────────────────
+  notify-sast:
+    if: ${{ always() && github.event_name == 'pull_request' && needs.sast.outputs.quality-gate-failed == 'true' }}
+    needs: [sast]
+    uses: infraGUID/infraguid-workflows/.github/workflows/_notify.yml@main
+    with:
+      subject: "[SAST] SonarCloud quality gate failed — ingestion-service"
+      body: "The SonarCloud SAST quality gate failed on this pull request. Review the findings in SonarCloud before merging."
+      service-name: ingestion-service
+    secrets:
+      BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+      NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+
+  notify-sca:
+    if: ${{ always() && github.event_name == 'pull_request' && (needs.sca.outputs.critical-found == 'true' || needs.sca.result == 'failure') }}
+    needs: [sca]
+    uses: infraGUID/infraguid-workflows/.github/workflows/_notify.yml@main
+    with:
+      subject: "[Snyk] Critical dependency vulnerabilities — ingestion-service"
+      body: "Snyk SCA found CRITICAL dependency vulnerabilities on this pull request. Review and remediate before merging."
+      service-name: ingestion-service
+    secrets:
+      BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+      NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+
+  # ───────────────── PR comment (PR only) ─────────────────
+  pr-comment:
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    needs: [sast, sca, trivy]
+    uses: infraGUID/infraguid-workflows/.github/workflows/_pr-comment.yml@main
+    with:
+      service-name: ingestion-service
+      sast: ${{ needs.sast.result }}
+      sca: ${{ needs.sca.result }}
+      trivy: ${{ needs.trivy.result }}
+
+  # ───────────────── publish + release (dispatch only) ─────────────────
   publish:
-    needs: [trivy]
+    if: github.event_name == 'workflow_dispatch'
+    needs: [version-check]
     uses: infraGUID/infraguid-workflows/.github/workflows/_docker-publish.yml@main
     with:
       image-name: infragui/ingestion-service
@@ -52,9 +112,17 @@ jobs:
       dockerfile: services/ingestion-service/Dockerfile
       context: .
 
-  cd:
+  tag:
+    if: github.event_name == 'workflow_dispatch'
     needs: [publish]
-    if: needs.publish.result == 'success'
+    uses: infraGUID/infraguid-workflows/.github/workflows/_tag.yml@main
+    with:
+      service-name: ingestion-service
+      version: ${{ inputs.version }}
+
+  cd:
+    if: ${{ github.event_name == 'workflow_dispatch' && needs.publish.result == 'success' }}
+    needs: [publish, tag]
     uses: infraGUID/infraguid-workflows/.github/workflows/_cd.yml@main
     with:
       chart: ingestion-service
