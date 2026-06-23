@@ -1,5 +1,4 @@
-from dataclasses import dataclass
-
+﻿from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class DocumentChunk:
@@ -8,7 +7,6 @@ class DocumentChunk:
     chunk_index: int
     content: str
     metadata: dict
-
 
 class MarkdownChunker:
     def __init__(self, chunk_size: int = 1000, overlap: int = 200) -> None:

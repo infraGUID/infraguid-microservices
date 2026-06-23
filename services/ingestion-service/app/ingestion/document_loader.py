@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+﻿from dataclasses import dataclass
 from pathlib import Path
 
 import boto3
@@ -8,14 +8,12 @@ from infraguid_common.observability.logger import get_logger
 
 logger = get_logger(__name__)
 
-
 @dataclass(frozen=True)
 class LoadedDocument:
     document_id: str
     path: str
     relative_path: str
     content: str
-
 
 class DocumentLoader:
     """Load Markdown documents from S3 bucket or local filesystem fallback."""

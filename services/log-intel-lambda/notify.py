@@ -1,4 +1,4 @@
-"""Publish the incident summary to SNS (notify-only)."""
+﻿"""Publish the incident summary to SNS (notify-only)."""
 from __future__ import annotations
 
 import logging
@@ -13,19 +13,16 @@ TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN", "")
 
 _sns = None
 
-
 def _client():
     global _sns
     if _sns is None:
         _sns = boto3.client("sns")
     return _sns
 
-
 def _fmt_ts(ms: int | None) -> str:
     if not ms:
         return "unknown"
     return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-
 
 def publish_alert(summary: dict, incident: dict) -> None:
     if not TOPIC_ARN:

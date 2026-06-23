@@ -1,4 +1,4 @@
-"""SQS consumer for async knowledge-base ingestion.
+﻿"""SQS consumer for async knowledge-base ingestion.
 
 The `/ingest` endpoint enqueues a job and returns immediately; this worker
 drains the queue and runs the (slow, Bedrock-throttled) ingestion out of band.
@@ -22,12 +22,10 @@ from app.ingestion.ingest import IngestionService
 
 logger = get_logger(__name__)
 
-
 async def run_ingestion_job(reset: bool = True) -> dict:
     """Run a single ingestion pass inside its own DB session."""
     async with session_scope() as session:
         return await IngestionService().run(session, reset=reset)
-
 
 async def _handle_message(message: dict) -> None:
     settings = get_settings()
@@ -43,11 +41,8 @@ async def _handle_message(message: dict) -> None:
 
     result = await run_ingestion_job(reset=reset)
 
-    # Only acknowledge (delete) once ingestion has fully succeeded so a crash
-    # mid-run lets SQS redeliver the job rather than silently dropping it.
     await sqs_client.delete_message(settings.sqs_ingestion_queue_url, receipt_handle)
     logger.info("ingestion_job_completed", job_id=job_id, **result)
-
 
 async def consume_forever(stop_event: asyncio.Event) -> None:
     """Long-poll the queue until `stop_event` is set."""
@@ -68,8 +63,6 @@ async def consume_forever(stop_event: asyncio.Event) -> None:
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            # Never let a transient error kill the loop; back off briefly and
-            # retry. The failed message stays invisible then redelivers.
             logger.error("ingestion_worker_error", error=str(exc))
             await asyncio.sleep(5)
 

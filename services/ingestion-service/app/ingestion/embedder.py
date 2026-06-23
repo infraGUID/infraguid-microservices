@@ -1,5 +1,4 @@
-from infraguid_common.llm.bedrock import get_embeddings
-
+﻿from infraguid_common.llm.bedrock import get_embeddings
 
 class DocumentEmbedder:
     def __init__(self) -> None:

@@ -1,4 +1,4 @@
-import boto3
+﻿import boto3
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,7 +15,6 @@ from app.clients.ingestion_client import get_ingest_status, trigger_ingest
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
-
 @router.post("/ingest")
 async def ingest() -> dict:
     """Proxy to ingestion-service to (re)ingest the knowledge base."""
@@ -27,7 +26,6 @@ async def ingest() -> dict:
         logger.error("ingestion_service_unreachable", error=str(exc))
         raise HTTPException(status_code=503, detail=f"Ingestion service unreachable: {exc}") from exc
 
-
 @router.get("/ingest/status")
 async def ingest_status() -> dict:
     """Proxy to ingestion-service for live queue depth + last run result."""
@@ -36,7 +34,6 @@ async def ingest_status() -> dict:
     except httpx.HTTPError as exc:
         logger.error("ingestion_service_unreachable", error=str(exc))
         raise HTTPException(status_code=503, detail=f"Ingestion service unreachable: {exc}") from exc
-
 
 @router.post("/upload")
 async def upload(file: UploadFile = File(...)) -> dict:
@@ -55,7 +52,6 @@ async def upload(file: UploadFile = File(...)) -> dict:
         logger.error("admin_upload_failed", filename=file.filename, error=str(exc))
         raise HTTPException(status_code=500, detail=f"Failed to upload file: {exc}") from exc
 
-
 @router.get("/stats")
 async def stats(session: AsyncSession = Depends(get_db_session)) -> dict:
     try:
@@ -71,7 +67,6 @@ async def stats(session: AsyncSession = Depends(get_db_session)) -> dict:
     except Exception as exc:
         logger.error("admin_stats_failed", error=str(exc))
         raise HTTPException(status_code=503, detail=f"Stats unavailable: {exc}") from exc
-
 
 @router.get("/documents")
 async def documents(session: AsyncSession = Depends(get_db_session)) -> list[dict]:
@@ -93,7 +88,6 @@ async def documents(session: AsyncSession = Depends(get_db_session)) -> list[dic
     except Exception as exc:
         logger.error("admin_documents_failed", error=str(exc))
         raise HTTPException(status_code=503, detail=f"Document list unavailable: {exc}") from exc
-
 
 @router.get("/chunks")
 async def chunks(
@@ -120,7 +114,6 @@ async def chunks(
     except Exception as exc:
         logger.error("admin_chunks_failed", error=str(exc))
         raise HTTPException(status_code=503, detail=f"Chunk explorer unavailable: {exc}") from exc
-
 
 @router.get("/agent/tools")
 async def agent_tools() -> dict:

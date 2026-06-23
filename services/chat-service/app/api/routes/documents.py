@@ -1,4 +1,4 @@
-import boto3
+﻿import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 from fastapi import APIRouter, HTTPException
@@ -10,13 +10,9 @@ from infraguid_common.observability.logger import get_logger
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
-
 @router.get("/{path:path}")
 async def get_document(path: str):
     settings = get_settings()
-    # SSE-KMS objects require SigV4 presigned URLs (s3v4), otherwise S3 returns
-    # "Requests specifying Server Side Encryption with AWS KMS managed keys
-    # require AWS Signature Version 4".
     s3_client = boto3.client(
         "s3",
         region_name=settings.aws_region,

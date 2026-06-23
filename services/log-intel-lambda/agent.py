@@ -1,4 +1,4 @@
-"""LangGraph ReAct agent that investigates a Kubernetes incident.
+﻿"""LangGraph ReAct agent that investigates a Kubernetes incident.
 
 Replaces the previous single-shot Bedrock call. The agent (Amazon Nova Pro via
 `ChatBedrockConverse`) reasons and calls read-only tools — CloudWatch logs, the
@@ -27,7 +27,6 @@ logger = logging.getLogger()
 MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "amazon.nova-pro-v1:0")
 MAX_AGENT_ITERATIONS = int(os.environ.get("MAX_AGENT_ITERATIONS", "6"))
 
-
 class IncidentReport(BaseModel):
     """Structured conclusion the agent must return."""
 
@@ -43,7 +42,6 @@ class IncidentReport(BaseModel):
     investigation_trail: str = Field(
         description="Brief notes on which tools you called and what they showed."
     )
-
 
 _SYSTEM = (
     "You are InfraGuid's Kubernetes SRE ReAct agent. A pod-log anomaly was "
@@ -70,9 +68,7 @@ Initial log evidence:
 
 Investigate and produce the incident report."""
 
-
 _agent = None
-
 
 def _get_agent():
     """Build the ReAct agent once per warm container."""
@@ -86,7 +82,6 @@ def _get_agent():
             response_format=IncidentReport,
         )
     return _agent
-
 
 def run_agent(incident: dict) -> dict:
     """Investigate an incident and return the report dict. Falls back to the

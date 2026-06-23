@@ -1,4 +1,4 @@
-"""Live Kubernetes API access for the Log Intelligence Agent.
+﻿"""Live Kubernetes API access for the Log Intelligence Agent.
 
 The Lambda role is mapped (via an EKS access entry) to the read-only
 `log-intel-readers` RBAC group, so it can GET/LIST pods, events, nodes and
@@ -29,19 +29,16 @@ CLUSTER_NAME = os.environ.get("EKS_CLUSTER_NAME", "")
 _TOKEN_PREFIX = "k8s-aws-v1."
 _TOKEN_TTL_SECONDS = 60  # presigned URL validity; we cache slightly under this
 
-# Cached per warm container.
 _eks_client = None
 _cluster_cache: dict | None = None
 _ca_path: str | None = None
 _token_cache: tuple[float, str] | None = None  # (expires_at_epoch, token)
-
 
 def _eks():
     global _eks_client
     if _eks_client is None:
         _eks_client = boto3.client("eks")
     return _eks_client
-
 
 def _describe_cluster() -> dict:
     """Return {endpoint, ca_data} for the cluster, cached per container."""
@@ -54,7 +51,6 @@ def _describe_cluster() -> dict:
         }
     return _cluster_cache
 
-
 def _ca_file() -> str:
     """Materialise the cluster CA to /tmp once, for TLS verification."""
     global _ca_path
@@ -65,7 +61,6 @@ def _ca_file() -> str:
             fh.write(ca)
         _ca_path = path
     return _ca_path
-
 
 def _bearer_token() -> str:
     """Generate (and briefly cache) an aws-iam-authenticator bearer token.
@@ -87,8 +82,6 @@ def _bearer_token() -> str:
     credentials = session.get_credentials().get_frozen_credentials()
 
     url = f"https://sts.{region}.amazonaws.com/?Action=GetCallerIdentity&Version=2011-06-15"
-    # x-k8s-aws-id must be present BEFORE signing so it is included in the
-    # canonical signed headers — this binds the token to a specific cluster.
     request = AWSRequest(method="GET", url=url, headers={"x-k8s-aws-id": CLUSTER_NAME})
     SigV4QueryAuth(credentials, "sts", region, expires=_TOKEN_TTL_SECONDS).add_auth(request)
 
@@ -97,7 +90,6 @@ def _bearer_token() -> str:
     ).decode("utf-8").rstrip("=")
     _token_cache = (now + _TOKEN_TTL_SECONDS - 10, token)
     return token
-
 
 def _get(path: str, timeout: int = 8) -> dict:
     """Perform an authenticated GET against the cluster API server."""
@@ -109,9 +101,6 @@ def _get(path: str, timeout: int = 8) -> dict:
     ctx = ssl.create_default_context(cafile=_ca_file())
     with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
         return json.loads(resp.read())
-
-
-# ── Public helpers (used by tools.py) ──────────────────────────────────────
 
 def get_pod(namespace: str, pod: str) -> dict:
     """Return the live pod object's status/conditions/container statuses."""
@@ -134,7 +123,6 @@ def get_pod(namespace: str, pod: str) -> dict:
         ],
     }
 
-
 def list_events(namespace: str, limit: int = 30) -> list[dict]:
     """Return recent Kubernetes Events in a namespace (Warning first)."""
     raw = _get(
@@ -152,10 +140,8 @@ def list_events(namespace: str, limit: int = 30) -> list[dict]:
         }
         for e in raw.get("items", [])
     ]
-    # Surface Warnings ahead of Normal events.
     events.sort(key=lambda e: 0 if e["type"] == "Warning" else 1)
     return events
-
 
 def list_pods(namespace: str) -> list[dict]:
     """Return a compact phase/restart summary of pods in a namespace."""
@@ -169,7 +155,6 @@ def list_pods(namespace: str) -> list[dict]:
             "restarts": sum(cs.get("restartCount", 0) for cs in st.get("containerStatuses", [])),
         })
     return out
-
 
 def describe_node(node: str) -> dict:
     """Return a node's conditions and allocatable/capacity (pressure signals)."""

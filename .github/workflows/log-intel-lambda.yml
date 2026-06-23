@@ -1,10 +1,5 @@
-name: CI - log-intel-lambda
+﻿name: CI - log-intel-lambda
 
-# Pull request to main -> validate only (SAST -> SCA -> lint), then a PR comment.
-#
-# Deployment is intentionally NOT handled here. The log-intel Lambda is managed
-# out-of-band — create/update it with services/log-intel-lambda/deploy.sh (AWS
-# CLI) or directly in the console. It is not in Terraform or CD by design.
 on:
   pull_request:
     branches: [main]
@@ -21,7 +16,6 @@ permissions:
   pull-requests: write
 
 jobs:
-  # ───────────────── validation ─────────────────
   sast:
     uses: infraGUID/infraguid-workflows/.github/workflows/_sast.yml@main
     with:
@@ -45,7 +39,6 @@ jobs:
       service-path: services/log-intel-lambda
       runtime: python
 
-  # ───────────────── security alerts (on findings) ─────────────────
   notify-sast:
     if: ${{ always() && needs.sast.outputs.quality-gate-failed == 'true' }}
     needs: [sast]
@@ -70,8 +63,6 @@ jobs:
       BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
       NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
 
-  # ───────────────── PR comment ─────────────────
-  # No image to scan for a Lambda, so the Trivy column shows as skipped.
   pr-comment:
     if: ${{ always() }}
     needs: [sast, sca, lint]

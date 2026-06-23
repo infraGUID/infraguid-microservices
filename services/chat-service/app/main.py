@@ -1,4 +1,4 @@
-from contextlib import asynccontextmanager
+﻿from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,7 +15,6 @@ configure_logging()
 settings = get_settings()
 logger = get_logger(__name__)
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
@@ -25,7 +24,6 @@ async def lifespan(app: FastAPI):
     yield
     await close_redis()
     await dispose_engine()
-
 
 app = FastAPI(
     title="InfraGuidAI Chat Service",
@@ -50,7 +48,6 @@ app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(documents.router)
 app.include_router(admin.router)
-
 
 @app.get("/")
 async def root() -> dict:

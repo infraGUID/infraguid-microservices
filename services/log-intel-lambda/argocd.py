@@ -1,4 +1,4 @@
-"""Best-effort ArgoCD deployment correlation for the Log Intelligence Agent.
+﻿"""Best-effort ArgoCD deployment correlation for the Log Intelligence Agent.
 
 Answers "did a recent deploy cause this incident?" by reading the ArgoCD app's
 recent sync/health history. The API token lives in Secrets Manager
@@ -25,17 +25,14 @@ ENABLED = os.environ.get("ENABLE_ARGOCD", "false").lower() == "true"
 _secrets_client = None
 _token_cache: str | None = None
 
-
 def is_enabled() -> bool:
     return ENABLED and bool(SERVER_URL) and bool(SECRET_ARN)
-
 
 def _secrets():
     global _secrets_client
     if _secrets_client is None:
         _secrets_client = boto3.client("secretsmanager")
     return _secrets_client
-
 
 def _token() -> str:
     """Fetch the ArgoCD API token from Secrets Manager (cached per container).
@@ -52,7 +49,6 @@ def _token() -> str:
             _token_cache = raw
     return _token_cache
 
-
 def _get(path: str, timeout: int = 8) -> dict:
     req = urllib.request.Request(SERVER_URL + path, method="GET")
     req.add_header("Authorization", f"Bearer {_token()}")
@@ -60,7 +56,6 @@ def _get(path: str, timeout: int = 8) -> dict:
     ctx = ssl.create_default_context()
     with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
         return json.loads(resp.read())
-
 
 def get_recent_history(app: str, limit: int = 5) -> dict:
     """Return the app's sync status, health and recent deployment history."""

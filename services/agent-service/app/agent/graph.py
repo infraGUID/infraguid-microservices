@@ -1,4 +1,4 @@
-import json
+﻿import json
 import re
 from functools import lru_cache
 from typing import Any
@@ -25,21 +25,14 @@ AGENT_SYSTEM_PROMPT = (
     "to do. Reply with only the final, user-facing answer."
 )
 
-# The model occasionally wraps internal reasoning in <thinking>...</thinking> tags
-# inside its visible text. These must never reach the user, so we strip them from
-# every AIMessage's rendered text (covers both the final answer and trace previews).
 _THINKING_BLOCK = re.compile(r"<thinking\b[^>]*>.*?</thinking\s*>", re.IGNORECASE | re.DOTALL)
-# Defensive: a thinking block left unclosed (e.g. truncated output) — drop to end.
 _THINKING_UNCLOSED = re.compile(r"<thinking\b[^>]*>.*\Z", re.IGNORECASE | re.DOTALL)
-
 
 def _strip_thinking(text: str) -> str:
     cleaned = _THINKING_BLOCK.sub("", text)
     cleaned = _THINKING_UNCLOSED.sub("", cleaned)
-    # Collapse blank-line runs left behind by removed blocks.
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     return cleaned.strip()
-
 
 def _message_text(message: Any) -> str:
     content = getattr(message, "content", "")
@@ -55,7 +48,6 @@ def _message_text(message: Any) -> str:
         return _strip_thinking("\n".join(p for p in parts if p))
     return _strip_thinking(str(content))
 
-
 def _tool_message_str(message: ToolMessage) -> str:
     content = message.content
     if isinstance(content, str):
@@ -69,7 +61,6 @@ def _tool_message_str(message: ToolMessage) -> str:
                 parts.append(str(block))
         return "\n".join(parts)
     return str(content)
-
 
 class DevOpsAgent:
     """LangGraph ReAct agent replacing the hand-written Bedrock Converse tool loop."""
@@ -169,7 +160,6 @@ class DevOpsAgent:
             seen.add(key)
             unique.append(source)
         return unique[:10]
-
 
 @lru_cache(maxsize=1)
 def get_agent() -> DevOpsAgent:

@@ -1,12 +1,4 @@
-/**
- * InfraGuidAI — Authentication Manager (Cognito)
- * Handles login, signup, token storage, and route guards via AWS Cognito.
- *
- * IMPORTANT: Set these values to match your Cognito User Pool configuration.
- * In production, these come from environment config injected at build time.
- */
-
-const COGNITO_CONFIG = {
+﻿const COGNITO_CONFIG = {
   UserPoolId: window.__COGNITO_USER_POOL_ID__ || "us-east-1_XXXXXXXXX",
   ClientId: window.__COGNITO_APP_CLIENT_ID__ || "xxxxxxxxxxxxxxxxxxxxxxxxxx",
   Region: window.__COGNITO_REGION__ || "us-east-1",
@@ -15,10 +7,6 @@ const COGNITO_CONFIG = {
 const AUTH_TOKEN_KEY = "infraguidai_token";
 const AUTH_USER_KEY = "infraguidai_user";
 
-/**
- * Lightweight Cognito SRP-free auth using InitiateAuth with USER_PASSWORD_AUTH.
- * No Amplify SDK required — uses direct Cognito API calls via fetch.
- */
 class CognitoAuth {
   static get endpoint() {
     return `https://cognito-idp.${COGNITO_CONFIG.Region}.amazonaws.com/`;
@@ -42,8 +30,6 @@ class CognitoAuth {
   }
 
   static async signUp(name, email, password) {
-    // Role is intentionally NOT set here — custom:role is not client-writable.
-    // New users default to "user"; admins are promoted out-of-band.
     return await this._call("SignUp", {
       ClientId: COGNITO_CONFIG.ClientId,
       Username: email,
@@ -87,9 +73,6 @@ class CognitoAuth {
   }
 }
 
-/**
- * Parse a JWT token payload without verification (for extracting claims client-side).
- */
 function parseJwt(token) {
   try {
     const base64Url = token.split(".")[1];
@@ -151,11 +134,9 @@ class AuthManager {
   static isLoggedIn() {
     const token = this.getToken();
     if (!token) return false;
-    // Check if token is expired
     const claims = parseJwt(token);
     if (!claims || !claims.exp) return false;
     if (Date.now() >= claims.exp * 1000) {
-      // Try to refresh silently
       this._tryRefresh();
       return false;
     }
@@ -215,7 +196,6 @@ class AuthManager {
 
     this.saveAuth(idToken, user, refreshToken);
 
-    // Sync user to backend database
     try {
       await this.safeFetchJson("/api/auth/sync", { method: "POST" });
     } catch (err) {
@@ -227,7 +207,6 @@ class AuthManager {
 
   static async signup(name, email, password) {
     await CognitoAuth.signUp(name, email, password);
-    // Return a pending status — user must confirm their email
     return { status: "confirmation_required", email };
   }
 

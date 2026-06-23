@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import json
 from typing import Any
 
@@ -11,41 +11,33 @@ from infraguid_common.config.settings import get_settings
 
 from app.clients.rag_client import rag_search
 
-
 def _json(data: dict[str, Any]) -> str:
     return json.dumps(data, indent=2, default=str)
-
 
 class SearchKnowledgeArgs(BaseModel):
     query: str = Field(description="Specific question or search phrase for the internal knowledge base.")
     top_k: int = Field(default=5, ge=1, le=10, description="Number of chunks to retrieve.")
 
-
 class TerraformArgs(BaseModel):
     request: str = Field(description="Terraform generation request, including AWS service, environment, and constraints.")
-
 
 class CatalogArgs(BaseModel):
     category: str | None = Field(default=None, description="Optional category filter: company, security, aws, platform, or operations.")
 
-
 class TopicArgs(BaseModel):
     topic: str = Field(description="Incident, runbook, security, AWS, cost, or platform topic to inspect.")
     top_k: int = Field(default=5, ge=1, le=10, description="Number of chunks to retrieve.")
-
 
 @tool("search_knowledge_base", args_schema=SearchKnowledgeArgs)
 async def search_knowledge_base(query: str, top_k: int = 5) -> str:
     """Retrieve relevant chunks from the internal knowledge base. Use for company standards, AWS guides, platform policies, and general questions."""
     return _json(await rag_search(query, top_k))
 
-
 @tool("generate_terraform", args_schema=TerraformArgs)
 async def generate_terraform(request: str) -> str:
     """Generate Terraform code using approved internal standards and module references. Use only for infrastructure-as-code generation requests."""
     query = f"Terraform standards AWS provider module catalog reference architectures {request}"
     return _json(await rag_search(query, top_k=5))
-
 
 @tool("list_document_catalog", args_schema=CatalogArgs)
 async def list_document_catalog(category: str | None = None) -> str:
@@ -106,13 +98,11 @@ async def list_document_catalog(category: str | None = None) -> str:
 
     return _json({"documents": docs, "count": len(docs)})
 
-
 @tool("lookup_incident_history", args_schema=TopicArgs)
 async def lookup_incident_history(topic: str, top_k: int = 6) -> str:
     """Retrieve RCA and incident-history details, including timelines, root causes, corrective actions, and lessons learned."""
     query = f"production incident RCA root cause timeline corrective actions {topic}"
     return _json(await rag_search(query, top_k=top_k))
-
 
 @tool("lookup_runbook", args_schema=TopicArgs)
 async def lookup_runbook(topic: str, top_k: int = 6) -> str:
@@ -120,20 +110,17 @@ async def lookup_runbook(topic: str, top_k: int = 6) -> str:
     query = f"deployment runbook incident response SOP operations procedure checklist {topic}"
     return _json(await rag_search(query, top_k=top_k))
 
-
 @tool("lookup_security_guidance", args_schema=TopicArgs)
 async def lookup_security_guidance(topic: str, top_k: int = 5) -> str:
     """Retrieve security standards for IAM, encryption, network controls, secrets, compliance, and production guardrails."""
     query = f"security standards IAM encryption network access secrets compliance {topic}"
     return _json(await rag_search(query, top_k=top_k))
 
-
 @tool("lookup_cost_guidance", args_schema=TopicArgs)
 async def lookup_cost_guidance(topic: str, top_k: int = 5) -> str:
     """Retrieve cost optimization standards, budget guidance, and service-specific savings recommendations."""
     query = f"cost optimization savings plans reserved instances budget alerts cost allocation {topic}"
     return _json(await rag_search(query, top_k=top_k))
-
 
 @tool("check_bedrock_configuration")
 async def check_bedrock_configuration() -> str:
@@ -149,7 +136,6 @@ async def check_bedrock_configuration() -> str:
         }
     )
 
-
 def get_agent_tools() -> list[BaseTool]:
     return [
         search_knowledge_base,
@@ -161,7 +147,6 @@ def get_agent_tools() -> list[BaseTool]:
         lookup_cost_guidance,
         check_bedrock_configuration,
     ]
-
 
 def available_agent_capabilities() -> list[dict]:
     return [{"name": tool.name, "description": tool.description} for tool in get_agent_tools()]

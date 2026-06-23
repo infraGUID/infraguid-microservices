@@ -1,20 +1,14 @@
-/* InfraGuidAI — Chat Controller */
-
-// Auth guard
-if (!AuthManager.guardPage()) {
+﻿if (!AuthManager.guardPage()) {
   throw new Error("Not authenticated");
 }
 
-// Show admin link if user is admin
 if (AuthManager.isAdmin()) {
   const adminLink = document.getElementById("adminLink");
   if (adminLink) adminLink.style.display = "";
 }
 
-// Render user block in sidebar
 AuthManager.renderUserBlock(document.getElementById("userBlock"));
 
-// DOM references
 const healthStatus = document.getElementById("healthStatus");
 const messages = document.getElementById("messages");
 const sources = document.getElementById("sources");
@@ -43,14 +37,11 @@ async function checkHealth() {
   }
 }
 
-// Render assistant content with fenced code blocks (```), inline `code` and
-// **bold**. Returns trusted HTML built from escaped fragments only.
 function renderRichContent(text) {
   const parts = String(text).split(/```/);
   let html = "";
   parts.forEach((part, index) => {
     if (index % 2 === 1) {
-      // Code fence: first line may be a language hint
       const newline = part.indexOf("\n");
       let lang = "";
       let code = part;
@@ -74,7 +65,6 @@ function renderRichContent(text) {
 }
 
 function addMessage(role, content, meta = "") {
-  // Remove welcome state if present
   const welcome = document.querySelector(".welcome-state");
   if (welcome) welcome.remove();
 
@@ -169,13 +159,11 @@ async function sendMessage(message) {
   }
 }
 
-// Auto-resize textarea
 input.addEventListener("input", () => {
   input.style.height = "auto";
   input.style.height = Math.min(input.scrollHeight, 160) + "px";
 });
 
-// Handle enter key (shift+enter for newline)
 input.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
@@ -199,7 +187,6 @@ document.querySelectorAll("[data-prompt]").forEach((button) => {
   });
 });
 
-// Welcome state
 const user = AuthManager.getUser();
 messages.innerHTML = `
   <div class="welcome-state">

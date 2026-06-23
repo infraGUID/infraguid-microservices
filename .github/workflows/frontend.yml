@@ -1,11 +1,5 @@
-name: CI/CD - frontend
+﻿name: CI/CD - frontend
 
-# Pull request to main  -> validate only (SAST -> build image + Trivy), then post
-#                          a summary comment. Nothing is published.
-# Merge to main         -> nothing runs (no push trigger by design).
-# workflow_dispatch     -> the only path that publishes: version guard -> the same
-#                          validation -> push image to ECR -> push git tag -> CD ->
-#                          CloudFront invalidation.
 on:
   pull_request:
     branches: [main]
@@ -29,7 +23,6 @@ permissions:
   pull-requests: write
 
 jobs:
-  # ───────────────── release guard (dispatch only) ─────────────────
   version-check:
     if: github.event_name == 'workflow_dispatch'
     uses: infraGUID/infraguid-workflows/.github/workflows/_version-check.yml@main
@@ -37,7 +30,6 @@ jobs:
       service-name: frontend
       version: ${{ inputs.version }}
 
-  # ───────────────── validation (PR only) ─────────────────
   sast:
     if: github.event_name == 'pull_request'
     uses: infraGUID/infraguid-workflows/.github/workflows/_sast.yml@main
@@ -55,7 +47,6 @@ jobs:
       dockerfile: frontend/Dockerfile
       context: .
 
-  # ───────────────── security alerts (PR only, on findings) ─────────────────
   notify-sast:
     if: ${{ always() && github.event_name == 'pull_request' && needs.sast.outputs.quality-gate-failed == 'true' }}
     needs: [sast]
@@ -68,7 +59,6 @@ jobs:
       BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
       NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
 
-  # ───────────────── PR comment (PR only) ─────────────────
   pr-comment:
     if: ${{ always() && github.event_name == 'pull_request' }}
     needs: [sast, trivy]
@@ -78,7 +68,6 @@ jobs:
       sast: ${{ needs.sast.result }}
       trivy: ${{ needs.trivy.result }}
 
-  # ───────────────── publish + release (dispatch only) ─────────────────
   publish:
     if: github.event_name == 'workflow_dispatch'
     needs: [version-check]
@@ -107,11 +96,6 @@ jobs:
     secrets:
       ARGOCD_DEPLOY_TOKEN: ${{ secrets.ARGOCD_DEPLOY_TOKEN }}
 
-  # Asset filenames are not content-hashed, so flush the CDN edge after a deploy
-  # to guarantee users get the new build. The distribution is found by its domain
-  # alias at runtime — no stored distribution ID needed. Reuses the same OIDC role
-  # (AWS_DEPLOY_ROLE_ARN) the infra pipeline uses; it manages the distribution, so
-  # it already has cloudfront permissions.
   invalidate:
     needs: [cd]
     if: needs.cd.result == 'success'

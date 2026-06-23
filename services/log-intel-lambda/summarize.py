@@ -1,4 +1,4 @@
-"""Evidence formatting and heuristic fallback for the Log Intelligence Agent.
+﻿"""Evidence formatting and heuristic fallback for the Log Intelligence Agent.
 
 The LangGraph ReAct agent (`agent.py`) is the primary analysis path. This module
 provides two pieces it depends on:
@@ -7,7 +7,6 @@ provides two pieces it depends on:
                           is unavailable, so an alert is always produced.
 """
 from __future__ import annotations
-
 
 def build_evidence(incident: dict) -> str:
     """Flatten captured + context log lines into a de-duped, capped evidence block."""
@@ -20,7 +19,6 @@ def build_evidence(incident: dict) -> str:
         if len(out) >= 25:
             break
     return "\n".join(out) or "(no log lines captured)"
-
 
 def heuristic_summary(incident: dict) -> dict:
     """Deterministic, error-type-aware report used when the agent cannot run."""

@@ -1,12 +1,10 @@
-import json
+﻿import json
 from typing import Any
 
 from app.rag.prompt_builder import PromptBuilder
 
-
 def to_json(data: dict[str, Any]) -> str:
     return json.dumps(data, indent=2, default=str)
-
 
 def chunk_payload(chunks: list[dict]) -> dict[str, Any]:
     """Build the search payload returned to the agent service (sources + previews)."""

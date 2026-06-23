@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
@@ -12,10 +12,8 @@ logger = get_logger(__name__)
 
 _MAX_MESSAGES = 50
 
-
 def _utc_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
-
 
 class SessionStore:
     """
@@ -57,7 +55,6 @@ class SessionStore:
             await self._redis.setex(key, self._ttl, json.dumps(blob))
             logger.info("session_created", session_id=resolved)
         else:
-            # Refresh TTL on activity so idle sessions expire but active ones do not.
             await self._redis.expire(key, self._ttl)
         return resolved
 
@@ -80,12 +77,10 @@ class SessionStore:
                 "role": role,
                 "content": content,
                 "sources": sources or [],
-                # Store only routing metadata, never raw tool traces (privacy).
                 "metadata": {k: v for k, v in (metadata or {}).items() if k in ("route", "tools_used")},
                 "created_at": _utc_iso(),
             }
         )
-        # Trim to keep memory bounded even for very long sessions.
         if len(blob["messages"]) > _MAX_MESSAGES:
             blob["messages"] = blob["messages"][-_MAX_MESSAGES:]
         await self._redis.setex(key, self._ttl, json.dumps(blob))

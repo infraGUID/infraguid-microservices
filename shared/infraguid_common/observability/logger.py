@@ -1,10 +1,9 @@
-import logging
+﻿import logging
 import sys
 
 import structlog
 
 from infraguid_common.config.settings import get_settings
-
 
 def configure_logging() -> None:
     settings = get_settings()
@@ -27,7 +26,6 @@ def configure_logging() -> None:
         logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,
     )
-
 
 def get_logger(name: str):
     return structlog.get_logger(name)

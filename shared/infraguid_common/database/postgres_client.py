@@ -1,4 +1,4 @@
-from contextlib import asynccontextmanager
+﻿from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy import text
@@ -11,7 +11,6 @@ logger = get_logger(__name__)
 
 _engine = None
 _async_session_factory = None
-
 
 def _get_engine():
     global _engine
@@ -26,7 +25,6 @@ def _get_engine():
         )
     return _engine
 
-
 def _get_session_factory():
     global _async_session_factory
     if _async_session_factory is None:
@@ -37,7 +35,6 @@ def _get_session_factory():
         )
     return _async_session_factory
 
-
 async def init_db() -> None:
     """Create all tables and enable pgvector extension."""
     engine = _get_engine()
@@ -45,7 +42,6 @@ async def init_db() -> None:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
     logger.info("postgresql_tables_ready")
-
 
 async def dispose_engine() -> None:
     """Dispose the engine connection pool on shutdown."""
@@ -55,7 +51,6 @@ async def dispose_engine() -> None:
         _engine = None
         _async_session_factory = None
         logger.info("postgresql_engine_disposed")
-
 
 async def get_db_session():
     """FastAPI dependency that yields an async database session."""
@@ -67,7 +62,6 @@ async def get_db_session():
         except Exception:
             await session.rollback()
             raise
-
 
 @asynccontextmanager
 async def session_scope():
@@ -81,7 +75,6 @@ async def session_scope():
         except Exception:
             await session.rollback()
             raise
-
 
 async def ping_db() -> dict:
     """Health check ping for PostgreSQL."""

@@ -1,4 +1,4 @@
-import httpx
+﻿import httpx
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, HTTPException
 
@@ -10,12 +10,10 @@ from app.clients.agent_client import run_agent
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
-
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=12000)
     session_id: str | None = None
     user_id: str | None = None
-
 
 class ChatResponse(BaseModel):
     session_id: str
@@ -24,7 +22,6 @@ class ChatResponse(BaseModel):
     sources: list[dict]
     tools_used: list[str] = []
     trace: list[dict] = []
-
 
 @router.post("", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
@@ -48,8 +45,6 @@ async def chat(request: ChatRequest) -> ChatResponse:
                 "tools_used": result.get("tools_used", []),
             },
         )
-        # trace is returned to the caller but NOT stored — it can contain verbose
-        # tool observations and must not be persisted anywhere (privacy principle).
         return ChatResponse(
             session_id=session_id,
             answer=result["answer"],

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+﻿from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from infraguid_common.cache.redis_client import ping_redis
@@ -6,7 +6,6 @@ from infraguid_common.database.postgres_client import get_db_session, ping_db
 from infraguid_common.vectorstore.pgvector_store import PgVectorStore
 
 router = APIRouter(prefix="/api", tags=["health"])
-
 
 @router.get("/health")
 async def health(session: AsyncSession = Depends(get_db_session)) -> dict:

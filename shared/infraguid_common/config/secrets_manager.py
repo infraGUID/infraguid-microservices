@@ -1,4 +1,4 @@
-"""
+﻿"""
 AWS Secrets Manager client for InfraGuidAI.
 
 Fetches and caches application secrets at startup. In production, the compute
@@ -25,9 +25,7 @@ import os
 from functools import lru_cache
 from typing import Any
 
-# Use stdlib logging — this module runs BEFORE structlog is configured
 logger = logging.getLogger(__name__)
-
 
 def _get_secrets_client():
     """Create a Secrets Manager client using the default credential chain (IAM role)."""
@@ -35,7 +33,6 @@ def _get_secrets_client():
 
     region = os.environ.get("AWS_REGION", "us-east-1")
     return boto3.client("secretsmanager", region_name=region)
-
 
 @lru_cache(maxsize=1)
 def fetch_secrets(secret_name: str) -> dict[str, Any]:
@@ -57,7 +54,6 @@ def fetch_secrets(secret_name: str) -> dict[str, Any]:
     except Exception as exc:
         raise RuntimeError(f"Failed to fetch secret '{secret_name}': {exc}") from exc
 
-
 def get_secret_value(key: str, default: str = "") -> str:
     """
     Get a specific key from the cached secret.
@@ -71,7 +67,6 @@ def get_secret_value(key: str, default: str = "") -> str:
         return str(secrets.get(key, default))
     except RuntimeError:
         return default
-
 
 def load_secrets_into_env() -> None:
     """

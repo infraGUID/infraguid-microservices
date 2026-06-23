@@ -1,14 +1,9 @@
-/* InfraGuidAI — Admin Controller */
-
-// Admin auth guard
-if (!AuthManager.guardAdminPage()) {
+﻿if (!AuthManager.guardAdminPage()) {
   throw new Error("Not authorized");
 }
 
-// Render user block
 AuthManager.renderUserBlock(document.getElementById("userBlock"));
 
-// DOM references
 const healthStatus = document.getElementById("healthStatus");
 const alertBox = document.getElementById("alert");
 const docCount = document.getElementById("docCount");
@@ -20,7 +15,6 @@ const chunks = document.getElementById("chunks");
 const refreshButton = document.getElementById("refreshButton");
 const ingestButton = document.getElementById("ingestButton");
 
-// Upload DOM references
 const uploadDocButton = document.getElementById("uploadDocButton");
 const fileInput = document.getElementById("fileInput");
 
@@ -109,10 +103,8 @@ async function pollIngestStatus() {
         showAlert(inFlight ? "Ingestion running — embedding documents via Bedrock…" : "Ingestion queued — waiting for worker…");
         continue;
       }
-      // Queue is drained — last_run has the final result.
       return status.last_run ?? null;
     } catch {
-      // Transient poll failure — keep waiting.
     }
   }
   return null; // timed out
@@ -136,7 +128,6 @@ async function ingest() {
         showAlert("Ingestion is still running in the background — refresh the page later to see results.");
       }
     } else {
-      // Synchronous fallback (no SQS in local dev).
       showAlert(
         `Ingestion ${data.status}: ${data.documents_processed || 0} documents, ${data.chunks_created || 0} chunks.`
       );
@@ -149,7 +140,6 @@ async function ingest() {
   }
 }
 
-// Upload handlers
 uploadDocButton.addEventListener("click", () => {
   fileInput.click();
 });
@@ -162,19 +152,19 @@ fileInput.addEventListener("change", async (e) => {
       fileInput.value = "";
       return;
     }
-    
+
     try {
       uploadDocButton.disabled = true;
       showAlert(`Uploading ${file.name}...`);
-      
+
       const formData = new FormData();
       formData.append("file", file);
-      
+
       const data = await AuthManager.safeFetchJson("/api/admin/upload", {
         method: "POST",
         body: formData
       });
-      
+
       showAlert(`Uploaded successfully: ${data.filename}`);
       fileInput.value = "";
       await refresh();

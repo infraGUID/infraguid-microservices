@@ -1,11 +1,10 @@
-from infraguid_common.llm.bedrock import get_chat_model
+﻿from infraguid_common.llm.bedrock import get_chat_model
 from infraguid_common.observability.logger import get_logger
 
 from app.rag.prompt_builder import PromptBuilder
 from app.rag.retriever import KnowledgeRetriever
 
 logger = get_logger(__name__)
-
 
 def message_text(message) -> str:
     """Extract plain text from a LangChain AIMessage (string or content-block list)."""
@@ -21,7 +20,6 @@ def message_text(message) -> str:
                 parts.append(block)
         return "\n".join(p for p in parts if p).strip()
     return str(content).strip()
-
 
 class RagPipeline:
     def __init__(self) -> None:

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import redis.asyncio as aioredis
 
@@ -8,7 +8,6 @@ from infraguid_common.observability.logger import get_logger
 logger = get_logger(__name__)
 
 _pool: aioredis.Redis | None = None
-
 
 def _build_pool() -> aioredis.Redis:
     settings = get_settings()
@@ -21,13 +20,11 @@ def _build_pool() -> aioredis.Redis:
         socket_timeout=5,
     )
 
-
 def get_redis_client() -> aioredis.Redis:
     global _pool
     if _pool is None:
         _pool = _build_pool()
     return _pool
-
 
 async def close_redis() -> None:
     global _pool
@@ -35,7 +32,6 @@ async def close_redis() -> None:
         await _pool.aclose()
         _pool = None
         logger.info("redis_connection_closed")
-
 
 async def ping_redis() -> dict:
     """Health-check ping; raises on failure."""

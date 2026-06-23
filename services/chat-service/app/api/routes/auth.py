@@ -1,4 +1,4 @@
-import time
+﻿import time
 from functools import lru_cache
 from typing import Any
 
@@ -19,18 +19,15 @@ _jwks_cache: dict[str, Any] = {}
 _jwks_cache_time: float = 0
 _JWKS_CACHE_TTL = 3600  # 1 hour
 
-
 def _get_jwks_url() -> str:
     region = settings.cognito_region
     pool_id = settings.cognito_user_pool_id
     return f"https://cognito-idp.{region}.amazonaws.com/{pool_id}/.well-known/jwks.json"
 
-
 def _get_issuer() -> str:
     region = settings.cognito_region
     pool_id = settings.cognito_user_pool_id
     return f"https://cognito-idp.{region}.amazonaws.com/{pool_id}"
-
 
 @lru_cache(maxsize=1)
 def _fetch_jwks_cached(url: str) -> dict[str, Any]:
@@ -38,7 +35,6 @@ def _fetch_jwks_cached(url: str) -> dict[str, Any]:
     response = httpx.get(url, timeout=10)
     response.raise_for_status()
     return response.json()
-
 
 def _get_jwks() -> dict[str, Any]:
     """Get JWKS with TTL-based cache refresh."""
@@ -51,14 +47,12 @@ def _get_jwks() -> dict[str, Any]:
     _jwks_cache_time = now
     return _jwks_cache
 
-
 def _find_key(kid: str) -> dict[str, Any] | None:
     jwks = _get_jwks()
     for key in jwks.get("keys", []):
         if key.get("kid") == kid:
             return key
     return None
-
 
 def verify_cognito_token(token: str) -> dict[str, Any]:
     """Verify a Cognito JWT token and return the claims."""
@@ -88,7 +82,6 @@ def verify_cognito_token(token: str) -> dict[str, Any]:
         logger.warning("cognito_token_verification_failed", error=str(exc))
         raise HTTPException(status_code=401, detail=f"Invalid token: {exc}") from exc
 
-
 def _extract_bearer_token(authorization: str | None) -> str:
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization header required")
@@ -96,7 +89,6 @@ def _extract_bearer_token(authorization: str | None) -> str:
     if len(parts) != 2 or parts[0].lower() != "bearer":
         raise HTTPException(status_code=401, detail="Invalid Authorization header format. Use: Bearer <token>")
     return parts[1]
-
 
 async def get_current_user(authorization: str | None = Header(default=None)) -> dict[str, Any]:
     """FastAPI dependency: extract and verify the Cognito token, return user claims."""
@@ -109,7 +101,6 @@ async def get_current_user(authorization: str | None = Header(default=None)) -> 
         "role": claims.get("custom:role", "user"),
     }
 
-
 @router.get("/me")
 async def me(user: dict = Depends(get_current_user)) -> dict:
     return {
@@ -118,7 +109,6 @@ async def me(user: dict = Depends(get_current_user)) -> dict:
         "email": user["email"],
         "role": user["role"],
     }
-
 
 @router.post("/sync")
 async def sync_user(

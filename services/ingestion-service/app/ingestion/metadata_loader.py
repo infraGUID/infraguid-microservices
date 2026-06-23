@@ -1,4 +1,4 @@
-import json
+﻿import json
 from pathlib import Path
 
 import boto3
@@ -8,7 +8,6 @@ from infraguid_common.config.settings import get_settings
 from infraguid_common.observability.logger import get_logger
 
 logger = get_logger(__name__)
-
 
 class MetadataLoader:
     """Load document metadata JSON from S3 or local filesystem fallback."""

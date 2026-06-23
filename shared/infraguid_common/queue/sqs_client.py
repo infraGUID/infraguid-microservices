@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import asyncio
 import json
@@ -13,7 +13,6 @@ logger = get_logger(__name__)
 
 _client = None
 
-
 def _get_client():
     """Lazily build a boto3 SQS client using the default credential chain (IRSA)."""
     global _client
@@ -22,11 +21,9 @@ def _get_client():
         _client = boto3.client("sqs", region_name=settings.aws_region)
     return _client
 
-
 async def send_message(queue_url: str, body: dict[str, Any]) -> str:
     """Enqueue a JSON message. Returns the SQS MessageId."""
     payload = json.dumps(body)
-    # boto3 is synchronous; offload to a thread so we never block the event loop.
     response = await asyncio.to_thread(
         _get_client().send_message,
         QueueUrl=queue_url,
@@ -35,7 +32,6 @@ async def send_message(queue_url: str, body: dict[str, Any]) -> str:
     message_id = response["MessageId"]
     logger.info("sqs_message_sent", queue=queue_url, message_id=message_id)
     return message_id
-
 
 async def receive_messages(
     queue_url: str,
@@ -53,7 +49,6 @@ async def receive_messages(
     )
     return response.get("Messages", [])
 
-
 async def delete_message(queue_url: str, receipt_handle: str) -> None:
     """Acknowledge a message so it is not redelivered."""
     await asyncio.to_thread(
@@ -61,7 +56,6 @@ async def delete_message(queue_url: str, receipt_handle: str) -> None:
         QueueUrl=queue_url,
         ReceiptHandle=receipt_handle,
     )
-
 
 async def get_queue_depth(queue_url: str) -> dict[str, int]:
     """Return approximate message counts for the queue.

@@ -1,4 +1,4 @@
-from uuid import uuid4
+﻿from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +16,6 @@ from app.ingestion.ingest import IngestionService
 logger = get_logger(__name__)
 router = APIRouter(tags=["ingestion"])
 
-
 @router.get("/health")
 async def health() -> dict:
     try:
@@ -24,7 +23,6 @@ async def health() -> dict:
         return {"status": "healthy", "service": "ingestion-service"}
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"ingestion-service unhealthy: {exc}") from exc
-
 
 @router.post("/ingest")
 async def ingest(session: AsyncSession = Depends(get_db_session)) -> dict:
@@ -49,7 +47,6 @@ async def ingest(session: AsyncSession = Depends(get_db_session)) -> dict:
         logger.info("ingest_enqueued", job_id=job_id, message_id=message_id)
         return {"status": "queued", "job_id": job_id, "message_id": message_id}
 
-    # Synchronous fallback (no SQS configured).
     try:
         return await IngestionService().run(session, reset=True)
     except Exception as exc:
@@ -58,7 +55,6 @@ async def ingest(session: AsyncSession = Depends(get_db_session)) -> dict:
             raise HTTPException(status_code=429, detail=f"Bedrock throttling limit reached: {mapped}") from exc
         logger.error("ingest_failed", error=str(mapped))
         raise HTTPException(status_code=503, detail=f"Ingestion failed: {mapped}") from exc
-
 
 @router.get("/ingest/status")
 async def ingest_status(session: AsyncSession = Depends(get_db_session)) -> dict:
@@ -85,7 +81,6 @@ async def ingest_status(session: AsyncSession = Depends(get_db_session)) -> dict
         "last_run": last_run,
         "queue": queue,
     }
-
 
 @router.get("/stats")
 async def stats(session: AsyncSession = Depends(get_db_session)) -> dict:

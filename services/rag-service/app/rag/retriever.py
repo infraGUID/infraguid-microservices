@@ -1,8 +1,7 @@
-from infraguid_common.config.settings import get_settings
+﻿from infraguid_common.config.settings import get_settings
 from infraguid_common.database.postgres_client import _get_session_factory
 from infraguid_common.llm.bedrock import get_embeddings
 from infraguid_common.vectorstore.pgvector_store import PgVectorStore
-
 
 class KnowledgeRetriever:
     def __init__(self) -> None:

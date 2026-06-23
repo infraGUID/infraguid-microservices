@@ -1,4 +1,4 @@
-from typing import Any
+﻿from typing import Any
 
 from sqlalchemy import delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,7 +7,6 @@ from infraguid_common.database.models import DocumentChunk
 from infraguid_common.observability.logger import get_logger
 
 logger = get_logger(__name__)
-
 
 class PgVectorStore:
     """Vector store backed by PostgreSQL pgvector extension."""

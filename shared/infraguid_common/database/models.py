@@ -1,18 +1,15 @@
-from datetime import datetime, timezone
+﻿from datetime import datetime, timezone
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import DeclarativeBase
 
-
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
-
 class Base(DeclarativeBase):
     pass
-
 
 class User(Base):
     __tablename__ = "users"
@@ -22,12 +19,6 @@ class User(Base):
     email = Column(String, unique=True, nullable=False, index=True)
     role = Column(String, nullable=False, default="user")
     created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
-
-
-# ChatSession and ChatMessage are intentionally absent.
-# Conversation history is stored only in Redis (SessionStore) with a TTL,
-# ensuring no message content is persisted to long-term storage.
-
 
 class KnowledgeDocument(Base):
     __tablename__ = "knowledge_documents"
@@ -41,7 +32,6 @@ class KnowledgeDocument(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
     updated_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
 
-
 class IngestionLog(Base):
     __tablename__ = "ingestion_logs"
 
@@ -53,7 +43,6 @@ class IngestionLog(Base):
     error_message = Column(Text, nullable=True)
     metadata_fields = Column(JSON, nullable=False, default=dict)
     ingested_at = Column(DateTime(timezone=True), nullable=False, default=utc_now)
-
 
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"

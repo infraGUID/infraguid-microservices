@@ -1,12 +1,7 @@
-/* ===================================================================
-   InfraGuidAI — Design System
-   Modern, sleek dark console. Indigo→violet primary, emerald accents.
-   =================================================================== */
-
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
+﻿@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
 
 :root {
-  /* Surfaces */
+  
   --bg: #070a13;
   --bg-elev: #0c111d;
   --surface: rgba(255, 255, 255, 0.03);
@@ -15,7 +10,7 @@
   --border: rgba(255, 255, 255, 0.07);
   --border-strong: rgba(255, 255, 255, 0.12);
 
-  /* Brand */
+  
   --primary: #6366f1;
   --primary-2: #8b5cf6;
   --primary-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
@@ -25,12 +20,12 @@
   --danger: #f43f5e;
   --warn: #f59e0b;
 
-  /* Text */
+  
   --text: #e9edf6;
   --text-dim: #aab2c5;
   --text-muted: #6b7488;
 
-  /* Effects */
+  
   --glass-blur: blur(16px);
   --radius-sm: 9px;
   --radius: 14px;
@@ -67,16 +62,12 @@ body {
 a { color: var(--primary-2); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-/* ===================================================================
-   App shell
-   =================================================================== */
 .app-shell {
   display: grid;
   grid-template-columns: 264px 1fr;
   height: 100vh;
 }
 
-/* Sidebar -------------------------------------------------------- */
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -118,7 +109,6 @@ a:hover { text-decoration: underline; }
 }
 .nav-icon { width: 18px; height: 18px; flex: none; }
 
-/* Sidebar user */
 .sidebar-user {
   display: flex; align-items: center; gap: 11px;
   margin-top: auto; padding: 12px;
@@ -143,7 +133,6 @@ a:hover { text-decoration: underline; }
 }
 .btn-logout:hover { color: var(--danger); background: rgba(244, 63, 94, 0.1); }
 
-/* Main ----------------------------------------------------------- */
 .main { display: flex; flex-direction: column; min-width: 0; height: 100vh; }
 
 .topbar {
@@ -188,7 +177,6 @@ a:hover { text-decoration: underline; }
   font-size: 13.5px; margin-bottom: 14px;
 }
 
-/* Chat layout ---------------------------------------------------- */
 .chat-layout {
   display: grid;
   grid-template-columns: 1fr 320px;
@@ -212,7 +200,6 @@ a:hover { text-decoration: underline; }
   scroll-behavior: smooth;
 }
 
-/* Welcome state */
 .welcome-state {
   margin: auto; text-align: center; max-width: 420px;
   display: flex; flex-direction: column; align-items: center; gap: 14px;
@@ -226,7 +213,6 @@ a:hover { text-decoration: underline; }
 .welcome-state h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; }
 .welcome-state p { color: var(--text-dim); font-size: 14px; }
 
-/* Message bubbles */
 .message { display: flex; flex-direction: column; max-width: 82%; animation: fadeUp 0.32s ease; }
 .message.user { align-self: flex-end; align-items: flex-end; }
 .message.assistant { align-self: flex-start; align-items: flex-start; }
@@ -251,7 +237,6 @@ a:hover { text-decoration: underline; }
 }
 .message .meta { font-size: 11px; color: var(--text-muted); margin-top: 6px; padding: 0 4px; }
 
-/* Markdown inside assistant bubbles */
 .bubble code:not(pre code) {
   font-family: var(--mono); font-size: 12.5px;
   background: rgba(0, 0, 0, 0.35); padding: 2px 6px; border-radius: 6px;
@@ -283,14 +268,12 @@ a:hover { text-decoration: underline; }
 .copy-btn:hover { background: var(--surface-3); color: #fff; }
 .copy-btn.copied { color: var(--accent); border-color: rgba(16, 185, 129, 0.4); }
 
-/* Typing indicator */
 .typing-indicator { display: inline-flex; gap: 5px; padding: 15px 18px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 16px; border-bottom-left-radius: 5px; }
 .typing-indicator span { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); animation: bounce 1.3s infinite ease-in-out; }
 .typing-indicator span:nth-child(2) { animation-delay: 0.18s; }
 .typing-indicator span:nth-child(3) { animation-delay: 0.36s; }
 @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-6px); opacity: 1; } }
 
-/* Composer */
 .composer {
   display: flex; align-items: flex-end; gap: 10px;
   padding: 14px; margin: 0 14px 14px;
@@ -318,7 +301,6 @@ a:hover { text-decoration: underline; }
 .btn-send:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .btn-send svg { width: 18px; height: 18px; }
 
-/* Side panel ----------------------------------------------------- */
 .side-panel { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 26px; }
 .side-panel h2 {
   font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
@@ -352,9 +334,6 @@ a:hover { text-decoration: underline; }
 }
 .source-link:hover { color: var(--primary-2); text-decoration: none; }
 
-/* ===================================================================
-   Auth pages
-   =================================================================== */
 .auth-page {
   min-height: 100vh; display: grid; place-items: center; padding: 24px;
   overflow-y: auto;
@@ -421,9 +400,6 @@ a:hover { text-decoration: underline; }
 
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-/* ===================================================================
-   Responsive
-   =================================================================== */
 @media (max-width: 1040px) {
   .chat-layout { grid-template-columns: 1fr; }
   .side-panel { display: none; }

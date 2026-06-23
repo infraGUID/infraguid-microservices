@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +14,6 @@ from app.ingestion.embedder import DocumentEmbedder
 from app.ingestion.metadata_loader import MetadataLoader
 
 logger = get_logger(__name__)
-
 
 class IngestionService:
     def __init__(self) -> None:
@@ -76,10 +75,7 @@ class IngestionService:
                         batch_metadatas,
                         document_id=document.document_id,
                     )
-                    # Pace requests to stay under low (new-account) Bedrock quotas.
                     await asyncio.sleep(1.0)
-                # Commit per document so progress persists even if a later
-                # document throttles — re-running resumes the rest.
                 await session.commit()
                 documents_processed += 1
                 chunks_created += len(chunks)

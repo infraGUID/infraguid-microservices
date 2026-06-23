@@ -1,22 +1,6 @@
-#!/usr/bin/env bash
-# ─────────────────────────────────────────────────────────────────────────────
-# CS-02 Log Intelligence Lambda — manual deploy (NOT managed by Terraform or CD).
-#
-# This Lambda is owned out-of-band on purpose: run this script (or use the
-# console / aws CLI) whenever you want to create or update it. It is idempotent
-# — safe to re-run. Terraform owns nothing here, so a CI apply can never delete
-# the function again.
-#
-# Easiest way to run: AWS CloudShell (has aws, python3, pip, zip and your creds).
-#   1) open CloudShell in us-east-1
-#   2) clone this repo, then:  bash services/log-intel-lambda/deploy.sh
-#
-# Prereqs if running locally: awscli v2, python3.12, pip, zip, and AWS creds with
-# permission to manage IAM / Lambda / Logs / EC2-SG / EKS in account 901607650789.
-# ─────────────────────────────────────────────────────────────────────────────
+﻿#!/usr/bin/env bash
 set -euo pipefail
 
-# ── Static config ────────────────────────────────────────────────────────────
 REGION="${AWS_REGION:-us-east-1}"
 PROJECT="infraguidai"
 ENVIRONMENT="prod"
@@ -39,7 +23,6 @@ MAX_AGENT_ITERATIONS=6
 DEDUP_TABLE="${PREFIX}-log-intel-dedup"
 DEDUP_TTL_SECONDS=1800  # 30 min suppress window
 
-# Coarse CloudWatch pre-filter (subset of collect.py ANOMALY_PATTERNS; <1024 chars).
 ANOMALY_PATTERN='?OOMKilled ?"Out of memory" ?CrashLoopBackOff ?RunContainerError ?"Back-off restarting failed container" ?CreateContainerConfigError ?CreateContainerError ?ImagePullBackOff ?ErrImageNeverPull ?ErrImagePull ?InvalidImageName ?FailedScheduling ?"Insufficient cpu" ?"Insufficient memory" ?"exceeded quota" ?"MountVolume.SetUp failed" ?FailedMount ?FailedAttachVolume ?"no space left on device" ?Evicted ?DiskPressure ?MemoryPressure ?PIDPressure ?NodeNotReady ?FailedCreatePodSandBox ?NetworkNotReady ?"Liveness probe failed" ?"Readiness probe failed" ?"panic:"'
 
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -48,7 +31,6 @@ LOG_GROUP_ARN="arn:aws:logs:${REGION}:${ACCOUNT_ID}:log-group:${LOG_GROUP}"
 
 echo "==> Account ${ACCOUNT_ID}, region ${REGION}, function ${FUNCTION_NAME}"
 
-# ── Discover networking + dependencies ───────────────────────────────────────
 echo "==> Discovering VPC / subnets / cluster SG / SNS / secret / KMS ..."
 read -r VPC_ID CLUSTER_SG < <(aws eks describe-cluster --name "$CLUSTER_NAME" --region "$REGION" \
   --query 'cluster.resourcesVpcConfig.[vpcId,clusterSecurityGroupId]' --output text)
@@ -66,7 +48,6 @@ KMS_KEY_ARN="$(aws kms describe-key --key-id "alias/${PREFIX}" --region "$REGION
 echo "    VPC=$VPC_ID  clusterSG=$CLUSTER_SG  subnets=$SUBNET_CSV"
 [ -n "$SUBNET_CSV" ] || { echo "ERROR: no private subnets found"; exit 1; }
 
-# ── 1. IAM execution role ────────────────────────────────────────────────────
 ROLE_CREATED=false
 if ! aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
   echo "==> Creating IAM role $ROLE_NAME"
@@ -103,7 +84,6 @@ aws iam put-role-policy --role-name "$ROLE_NAME" --policy-name logintel-permissi
   --policy-document file:///tmp/logintel-permissions.json
 [ "$ROLE_CREATED" = true ] && { echo "    waiting for role to propagate ..."; sleep 12; }
 
-# ── 2. DynamoDB deduplication table ──────────────────────────────────────────
 if aws dynamodb describe-table --table-name "$DEDUP_TABLE" --region "$REGION" >/dev/null 2>&1; then
   echo "==> DynamoDB table $DEDUP_TABLE already exists"
 else
@@ -119,7 +99,6 @@ else
   echo "    TTL enabled on attribute 'ttl'"
 fi
 
-# ── 3. Security group (egress only) ──────────────────────────────────────────
 LAMBDA_SG="$(aws ec2 describe-security-groups --region "$REGION" \
   --filters "Name=vpc-id,Values=$VPC_ID" "Name=group-name,Values=$SG_NAME" \
   --query 'SecurityGroups[0].GroupId' --output text 2>/dev/null || true)"
@@ -130,12 +109,10 @@ if [ -z "$LAMBDA_SG" ] || [ "$LAMBDA_SG" = "None" ]; then
     --vpc-id "$VPC_ID" --query GroupId --output text)"
   aws ec2 create-tags --region "$REGION" --resources "$LAMBDA_SG" \
     --tags "Key=Name,Value=$SG_NAME" "Key=Project,Value=${PROJECT}" "Key=Environment,Value=${ENVIRONMENT}"
-  # default egress (allow all) is present on a new SG; nothing else to add.
 else
   echo "==> Security group $SG_NAME already exists ($LAMBDA_SG)"
 fi
 
-# ── 4. Build + publish the dependencies layer ────────────────────────────────
 echo "==> Building deps layer (Linux wheels) and publishing"
 cd "$SRC_DIR"
 rm -rf build/layer && mkdir -p build/layer/python
@@ -151,7 +128,6 @@ LAYER_ARN="$(aws lambda publish-layer-version --layer-name "$LAYER_NAME" \
   --region "$REGION" --query LayerVersionArn --output text)"
 echo "    layer: $LAYER_ARN"
 
-# ── 5. Package the function source (deps live in the layer) ──────────────────
 echo "==> Packaging function source"
 rm -f /tmp/log-intel-lambda.zip
 zip -qr /tmp/log-intel-lambda.zip . \
@@ -160,7 +136,6 @@ zip -qr /tmp/log-intel-lambda.zip . \
 ENV_VARS="Variables={SNS_TOPIC_ARN=${SNS_TOPIC_ARN},BEDROCK_MODEL_ID=${BEDROCK_MODEL_ID},LOG_GROUP_NAME=${LOG_GROUP},EKS_CLUSTER_NAME=${CLUSTER_NAME},ARGOCD_SECRET_ARN=${SECRET_ARN},ARGOCD_SERVER_URL=,ENABLE_ARGOCD=false,MAX_AGENT_ITERATIONS=${MAX_AGENT_ITERATIONS},DEDUP_TABLE=${DEDUP_TABLE},DEDUP_TTL_SECONDS=${DEDUP_TTL_SECONDS}}"
 VPC_CONFIG="SubnetIds=${SUBNET_CSV},SecurityGroupIds=${LAMBDA_SG}"
 
-# ── 6. Create or update the function ─────────────────────────────────────────
 if aws lambda get-function --function-name "$FUNCTION_NAME" --region "$REGION" >/dev/null 2>&1; then
   echo "==> Updating existing function code + config"
   aws lambda update-function-code --function-name "$FUNCTION_NAME" --region "$REGION" \
@@ -185,7 +160,6 @@ FUNCTION_ARN="$(aws lambda get-function --function-name "$FUNCTION_NAME" --regio
   --query Configuration.FunctionArn --output text)"
 echo "    function: $FUNCTION_ARN"
 
-# ── 7. Allow CloudWatch Logs to invoke the function ──────────────────────────
 echo "==> Granting CloudWatch Logs invoke permission"
 aws lambda remove-permission --function-name "$FUNCTION_NAME" --region "$REGION" \
   --statement-id AllowCloudWatchLogsInvoke 2>/dev/null || true
@@ -193,19 +167,16 @@ aws lambda add-permission --function-name "$FUNCTION_NAME" --region "$REGION" \
   --statement-id AllowCloudWatchLogsInvoke --action lambda:InvokeFunction \
   --principal "logs.${REGION}.amazonaws.com" --source-arn "${LOG_GROUP_ARN}:*" >/dev/null
 
-# ── 8. Open EKS API (443) from the Lambda SG so its k8s tools work ────────────
 echo "==> Ensuring EKS API ingress from Lambda SG"
 aws ec2 authorize-security-group-ingress --region "$REGION" --group-id "$CLUSTER_SG" \
   --ip-permissions "IpProtocol=tcp,FromPort=443,ToPort=443,UserIdGroupPairs=[{GroupId=${LAMBDA_SG},Description=HTTPS from log-intel Lambda}]" \
   2>/dev/null || echo "    (ingress already present)"
 
-# ── 9. EKS access entry (role -> read-only group; RBAC binding ships via ArgoCD)
 echo "==> Ensuring EKS access entry"
 aws eks create-access-entry --region "$REGION" --cluster-name "$CLUSTER_NAME" \
   --principal-arn "$ROLE_ARN" --kubernetes-groups log-intel-readers --type STANDARD \
   2>/dev/null || echo "    (access entry already present)"
 
-# ── 10. Subscription filter: pod-logs -> Lambda on anomaly lines ─────────────
 echo "==> Wiring log subscription filter on $LOG_GROUP"
 aws logs put-subscription-filter --region "$REGION" \
   --log-group-name "$LOG_GROUP" --filter-name "${PREFIX}-anomaly-filter" \

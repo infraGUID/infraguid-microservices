@@ -1,5 +1,4 @@
-from infraguid_common.llm.prompt_templates import RAG_PROMPT, SYSTEM_PROMPT, TERRAFORM_PROMPT
-
+﻿from infraguid_common.llm.prompt_templates import RAG_PROMPT, SYSTEM_PROMPT, TERRAFORM_PROMPT
 
 class PromptBuilder:
     def build_context(self, chunks: list[dict]) -> str:

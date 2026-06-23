@@ -1,4 +1,4 @@
-import time
+﻿import time
 from collections.abc import Callable
 
 from fastapi import Request, Response
@@ -7,7 +7,6 @@ from structlog.contextvars import bind_contextvars, clear_contextvars
 from infraguid_common.observability.logger import get_logger
 
 logger = get_logger(__name__)
-
 
 async def request_logging_middleware(request: Request, call_next: Callable) -> Response:
     clear_contextvars()

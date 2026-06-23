@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -13,16 +13,13 @@ from app.worker import consume_forever
 configure_logging()
 logger = get_logger(__name__)
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # ingestion-service owns the schema: ensure tables + pgvector extension exist.
     try:
         await init_db()
     except Exception as exc:
         logger.warning("database_initialization_error", error=str(exc))
 
-    # Start the SQS consumer alongside the API when a queue is configured.
     settings = get_settings()
     worker_task: asyncio.Task | None = None
     stop_event = asyncio.Event()
@@ -42,7 +39,6 @@ async def lifespan(app: FastAPI):
             pass
     await dispose_engine()
 
-
 app = FastAPI(
     title="InfraGuidAI Ingestion Service",
     description="Document load, chunk, embed (LangChain AWS), and pgvector upsert.",
@@ -51,7 +47,6 @@ app = FastAPI(
 )
 
 app.include_router(router)
-
 
 @app.get("/")
 async def root() -> dict:

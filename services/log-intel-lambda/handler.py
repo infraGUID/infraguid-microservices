@@ -1,4 +1,4 @@
-"""CS-02 Kubernetes Log Intelligence Agent — Lambda entrypoint.
+﻿"""CS-02 Kubernetes Log Intelligence Agent — Lambda entrypoint.
 
 Event-triggered: a CloudWatch Logs subscription filter invokes this function
 ONLY on pod-log lines matching the anomaly pattern. For each detected incident a
@@ -21,7 +21,6 @@ from notify import publish_alert
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-
 
 def lambda_handler(event, context):  # noqa: ANN001, ARG001
     data = event.get("awslogs", {}).get("data")

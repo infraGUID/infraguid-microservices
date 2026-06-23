@@ -1,11 +1,10 @@
-from sqlalchemy import select
+﻿from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from infraguid_common.database.models import User
 from infraguid_common.observability.logger import get_logger
 
 logger = get_logger(__name__)
-
 
 class UserRepository:
     def __init__(self, session: AsyncSession):

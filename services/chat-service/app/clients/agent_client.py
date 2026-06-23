@@ -1,6 +1,5 @@
-from infraguid_common.config.settings import get_settings
+﻿from infraguid_common.config.settings import get_settings
 from infraguid_common.http.service_client import get_json, post_json
-
 
 async def run_agent(message: str, history: list[dict]) -> dict:
     """Call agent-service to run the LangGraph DevOps agent."""
@@ -10,7 +9,6 @@ async def run_agent(message: str, history: list[dict]) -> dict:
         {"message": message, "history": history},
         timeout=180.0,
     )
-
 
 async def list_agent_tools() -> dict:
     settings = get_settings()

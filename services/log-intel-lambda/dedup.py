@@ -1,4 +1,4 @@
-"""Alert deduplication via DynamoDB conditional put.
+﻿"""Alert deduplication via DynamoDB conditional put.
 
 Suppresses repeat alerts for the same (namespace, pod, error_type) tuple
 within a rolling window (default 30 min). A single atomic PutItem with a
@@ -23,13 +23,11 @@ DEDUP_TTL_SECONDS = int(os.environ.get("DEDUP_TTL_SECONDS", "1800"))  # 30 min
 
 _table_resource = None
 
-
 def _table():
     global _table_resource
     if _table_resource is None:
         _table_resource = boto3.resource("dynamodb").Table(DEDUP_TABLE)
     return _table_resource
-
 
 def is_duplicate(namespace: str, pod: str, error_type: str) -> bool:
     """Return True if this (namespace, pod, error_type) was already alerted
@@ -44,9 +42,6 @@ def is_duplicate(namespace: str, pod: str, error_type: str) -> bool:
     try:
         _table().put_item(
             Item={"pk": pk, "ttl": expires},
-            # Allow the write only when:
-            #   a) the item doesn't exist yet, OR
-            #   b) its TTL has already passed (expired item still readable briefly)
             ConditionExpression="attribute_not_exists(pk) OR #t < :now",
             ExpressionAttributeNames={"#t": "ttl"},
             ExpressionAttributeValues={":now": now},

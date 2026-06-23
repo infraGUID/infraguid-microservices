@@ -1,4 +1,4 @@
-"""Anomaly extraction and context enrichment for the Log Intelligence Agent.
+﻿"""Anomaly extraction and context enrichment for the Log Intelligence Agent.
 
 Fluent Bit ships pod logs to CloudWatch; this module turns the matching log
 events into structured incidents and (best effort) gathers surrounding context.
@@ -13,26 +13,13 @@ import boto3
 
 logger = logging.getLogger()
 
-# Anomaly classes the agent recognises, mapped to a default P-severity. The LLM
-# may refine severity, but this guarantees a sensible floor if the LLM is skipped.
-#
-# This is the AUTHORITATIVE classifier: a log line that passes the CloudWatch
-# subscription filter (terraform var.anomaly_filter_pattern) but matches none of
-# these keys produces NO incident. Keep this set in sync with that filter pattern.
-#
-# Ordering matters: extract_incidents() takes the FIRST key found in a line, so
-# more-specific phrases must precede the shorter substrings they contain
-# (e.g. "CrashLoopBackOff" before "BackOff", "ErrImagePull" before "ImagePull").
-# Avoid bare noisy tokens like "error"/"failed" on their own.
 ANOMALY_PATTERNS: dict[str, str] = {
-    # ── Runtime / OOM ──────────────────────────────────────────────────────
     "OOMKilled": "P1",
     "Out of memory": "P1",
     "CrashLoopBackOff": "P1",
     "OCI runtime create failed": "P1",
     "RunContainerError": "P1",
     "Back-off restarting failed container": "P2",
-    # ── Container config / image ───────────────────────────────────────────
     "CreateContainerConfigError": "P2",
     "CreateContainerError": "P2",
     "ImagePullBackOff": "P2",
@@ -40,35 +27,29 @@ ANOMALY_PATTERNS: dict[str, str] = {
     "ErrImagePull": "P2",
     "InvalidImageName": "P2",
     "Failed to pull image": "P2",
-    # ── Scheduling / capacity / quota ──────────────────────────────────────
     "FailedScheduling": "P2",
     "Insufficient cpu": "P2",
     "Insufficient memory": "P2",
     "nodes are available": "P2",  # "0/N nodes are available: ..."
     "exceeded quota": "P2",
-    # ── Volumes / storage ──────────────────────────────────────────────────
     "MountVolume.SetUp failed": "P2",
     "FailedMount": "P2",
     "FailedAttachVolume": "P2",
     "unbound immediate PersistentVolumeClaims": "P2",
     "no space left on device": "P1",
-    # ── Node / eviction pressure ───────────────────────────────────────────
     "Evicted": "P1",
     "DiskPressure": "P1",
     "MemoryPressure": "P1",
     "PIDPressure": "P2",
     "NodeNotReady": "P1",
-    # ── Network / sandbox (CNI) ────────────────────────────────────────────
     "FailedCreatePodSandBox": "P1",
     "NetworkNotReady": "P1",
     "network plugin": "P1",  # "network plugin ... not ready"
-    # ── Probes / health ────────────────────────────────────────────────────
     "Liveness probe failed": "P2",
     "Liveness probe errored": "P2",
     "Readiness probe failed": "P3",
     "Readiness probe errored": "P3",
     "Unhealthy": "P3",
-    # ── Application-level ──────────────────────────────────────────────────
     "panic:": "P2",
     "context deadline exceeded": "P3",
     "connection refused": "P3",
@@ -76,13 +57,11 @@ ANOMALY_PATTERNS: dict[str, str] = {
 
 _logs_client = None
 
-
 def _logs():
     global _logs_client
     if _logs_client is None:
         _logs_client = boto3.client("logs")
     return _logs_client
-
 
 def _parse_message(raw: str) -> tuple[str, dict]:
     """Return (text, k8s_metadata). Fluent Bit records may be JSON with a
@@ -98,11 +77,8 @@ def _parse_message(raw: str) -> tuple[str, dict]:
             pass
     return raw, {}
 
-
 def _pod_from_stream(log_stream: str) -> str:
-    # Fluent Bit stream prefix is "pod-"; the remainder usually holds pod info.
     return log_stream[len("pod-"):] if log_stream.startswith("pod-") else log_stream
-
 
 def extract_incidents(log_events: list[dict], log_stream: str) -> list[dict]:
     """Group matching log lines into one incident per (pod, error_type)."""
@@ -132,7 +108,6 @@ def extract_incidents(log_events: list[dict], log_stream: str) -> list[dict]:
         if len(incident["samples"]) < 15:
             incident["samples"].append(text[:1000])
     return list(grouped.values())
-
 
 def enrich_context(incident: dict, log_group: str) -> None:
     """Best-effort: pull a few more recent lines for the pod from CloudWatch."""
