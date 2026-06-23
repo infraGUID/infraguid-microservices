@@ -73,3 +73,8 @@ log-intel-lambda.yml`) does the same and runs `update-function-code` +
 `update-function-configuration --layers` on changes. The function zip stays
 source-only (`archive_file` over this directory). `boto3` is provided by the
 runtime.
+
+## CI/CD
+
+`.github/workflows/log-intel-lambda.yml` validates pull requests; the Lambda is
+published (layer + function code/config update) only via `workflow_dispatch`.

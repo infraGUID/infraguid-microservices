@@ -209,7 +209,7 @@ class AuthManager {
     const user = {
       user_id: claims.sub,
       email: claims.email || email,
-      name: claims.name || claims["cognito:username"] || email,
+      name: claims.name || (claims.email || email || "").split("@")[0] || claims["cognito:username"] || "User",
       role: claims["custom:role"] || "user",
     };
 
@@ -246,7 +246,7 @@ class AuthManager {
       const user = {
         user_id: claims.sub,
         email: claims.email,
-        name: claims.name || claims["cognito:username"],
+        name: claims.name || (claims.email || "").split("@")[0] || claims["cognito:username"] || "User",
         role: claims["custom:role"] || "user",
       };
       this.saveAuth(idToken, user, refreshToken);
