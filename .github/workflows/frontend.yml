@@ -86,7 +86,6 @@ jobs:
     with:
       image-name: infragui/frontend
       tag: v${{ inputs.version }}
-      push-latest: true
       dockerfile: frontend/Dockerfile
       context: .
 

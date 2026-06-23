@@ -108,7 +108,6 @@ jobs:
     with:
       image-name: infragui/agent-service
       tag: v${{ inputs.version }}
-      push-latest: true
       dockerfile: services/agent-service/Dockerfile
       context: .
 

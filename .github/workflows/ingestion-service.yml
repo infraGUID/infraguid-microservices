@@ -108,7 +108,6 @@ jobs:
     with:
       image-name: infragui/ingestion-service
       tag: v${{ inputs.version }}
-      push-latest: true
       dockerfile: services/ingestion-service/Dockerfile
       context: .
 

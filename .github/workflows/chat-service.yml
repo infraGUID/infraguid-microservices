@@ -108,7 +108,6 @@ jobs:
     with:
       image-name: infragui/chat-service
       tag: v${{ inputs.version }}
-      push-latest: true
       dockerfile: services/chat-service/Dockerfile
       context: .
 
