@@ -16,6 +16,7 @@ import logging
 
 from agent import run_agent
 from collect import enrich_context, extract_incidents
+from dedup import is_duplicate
 from notify import publish_alert
 
 logger = logging.getLogger()
@@ -39,7 +40,11 @@ def lambda_handler(event, context):  # noqa: ANN001, ARG001
         return {"status": "no_incident"}
 
     alerted = []
+    suppressed = 0
     for incident in incidents:
+        if is_duplicate(incident["namespace"], incident["pod"], incident["error_type"]):
+            suppressed += 1
+            continue
         try:
             enrich_context(incident, log_group)
             summary = run_agent(incident)
@@ -48,4 +53,4 @@ def lambda_handler(event, context):  # noqa: ANN001, ARG001
         except Exception:  # noqa: BLE001 - isolate failures per incident
             logger.exception("Failed to process incident for pod %s", incident.get("pod"))
 
-    return {"status": "alerted", "count": len(alerted), "incidents": alerted}
+    return {"status": "alerted", "count": len(alerted), "suppressed": suppressed, "incidents": alerted}
