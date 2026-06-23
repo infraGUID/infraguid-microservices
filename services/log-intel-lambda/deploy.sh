@@ -36,6 +36,8 @@ TIMEOUT=300
 MEMORY=1024
 BEDROCK_MODEL_ID="amazon.nova-pro-v1:0"
 MAX_AGENT_ITERATIONS=6
+DEDUP_TABLE="${PREFIX}-log-intel-dedup"
+DEDUP_TTL_SECONDS=1800  # 30 min suppress window
 
 # Coarse CloudWatch pre-filter (subset of collect.py ANOMALY_PATTERNS; <1024 chars).
 ANOMALY_PATTERN='?OOMKilled ?"Out of memory" ?CrashLoopBackOff ?RunContainerError ?"Back-off restarting failed container" ?CreateContainerConfigError ?CreateContainerError ?ImagePullBackOff ?ErrImageNeverPull ?ErrImagePull ?InvalidImageName ?FailedScheduling ?"Insufficient cpu" ?"Insufficient memory" ?"exceeded quota" ?"MountVolume.SetUp failed" ?FailedMount ?FailedAttachVolume ?"no space left on device" ?Evicted ?DiskPressure ?MemoryPressure ?PIDPressure ?NodeNotReady ?FailedCreatePodSandBox ?NetworkNotReady ?"Liveness probe failed" ?"Readiness probe failed" ?"panic:"'
@@ -92,7 +94,8 @@ cat >/tmp/logintel-permissions.json <<JSON
     { "Sid": "DescribeCluster", "Effect": "Allow", "Action": ["eks:DescribeCluster","eks:ListNodegroups","eks:DescribeNodegroup"], "Resource": "*" },
     { "Sid": "K8sAuth", "Effect": "Allow", "Action": ["sts:GetCallerIdentity"], "Resource": "*" },
     { "Sid": "ReadSecret", "Effect": "Allow", "Action": ["secretsmanager:GetSecretValue"], "Resource": "${SECRET_ARN}" },
-    { "Sid": "KmsDecrypt", "Effect": "Allow", "Action": ["kms:Decrypt","kms:GenerateDataKey"], "Resource": "${KMS_KEY_ARN}" }
+    { "Sid": "KmsDecrypt", "Effect": "Allow", "Action": ["kms:Decrypt","kms:GenerateDataKey"], "Resource": "${KMS_KEY_ARN}" },
+    { "Sid": "DedupTable", "Effect": "Allow", "Action": ["dynamodb:PutItem"], "Resource": "arn:aws:dynamodb:${REGION}:${ACCOUNT_ID}:table/${DEDUP_TABLE}" }
   ]
 }
 JSON
@@ -100,7 +103,23 @@ aws iam put-role-policy --role-name "$ROLE_NAME" --policy-name logintel-permissi
   --policy-document file:///tmp/logintel-permissions.json
 [ "$ROLE_CREATED" = true ] && { echo "    waiting for role to propagate ..."; sleep 12; }
 
-# ── 2. Security group (egress only) ──────────────────────────────────────────
+# ── 2. DynamoDB deduplication table ──────────────────────────────────────────
+if aws dynamodb describe-table --table-name "$DEDUP_TABLE" --region "$REGION" >/dev/null 2>&1; then
+  echo "==> DynamoDB table $DEDUP_TABLE already exists"
+else
+  echo "==> Creating DynamoDB table $DEDUP_TABLE"
+  aws dynamodb create-table --region "$REGION" --table-name "$DEDUP_TABLE" \
+    --attribute-definitions AttributeName=pk,AttributeType=S \
+    --key-schema AttributeName=pk,KeyType=HASH \
+    --billing-mode PAY_PER_REQUEST \
+    --tags "Key=Project,Value=${PROJECT}" "Key=Environment,Value=${ENVIRONMENT}" "Key=ManagedBy,Value=manual-script" >/dev/null
+  aws dynamodb wait table-exists --table-name "$DEDUP_TABLE" --region "$REGION"
+  aws dynamodb update-time-to-live --region "$REGION" --table-name "$DEDUP_TABLE" \
+    --time-to-live-specification "Enabled=true,AttributeName=ttl" >/dev/null
+  echo "    TTL enabled on attribute 'ttl'"
+fi
+
+# ── 3. Security group (egress only) ──────────────────────────────────────────
 LAMBDA_SG="$(aws ec2 describe-security-groups --region "$REGION" \
   --filters "Name=vpc-id,Values=$VPC_ID" "Name=group-name,Values=$SG_NAME" \
   --query 'SecurityGroups[0].GroupId' --output text 2>/dev/null || true)"
@@ -116,7 +135,7 @@ else
   echo "==> Security group $SG_NAME already exists ($LAMBDA_SG)"
 fi
 
-# ── 3. Build + publish the dependencies layer ────────────────────────────────
+# ── 4. Build + publish the dependencies layer ────────────────────────────────
 echo "==> Building deps layer (Linux wheels) and publishing"
 cd "$SRC_DIR"
 rm -rf build/layer && mkdir -p build/layer/python
@@ -132,16 +151,16 @@ LAYER_ARN="$(aws lambda publish-layer-version --layer-name "$LAYER_NAME" \
   --region "$REGION" --query LayerVersionArn --output text)"
 echo "    layer: $LAYER_ARN"
 
-# ── 4. Package the function source (deps live in the layer) ──────────────────
+# ── 5. Package the function source (deps live in the layer) ──────────────────
 echo "==> Packaging function source"
 rm -f /tmp/log-intel-lambda.zip
 zip -qr /tmp/log-intel-lambda.zip . \
   -x '*.pyc' '__pycache__/*' 'README.md' 'build/*' 'requirements.txt' 'deploy.sh'
 
-ENV_VARS="Variables={SNS_TOPIC_ARN=${SNS_TOPIC_ARN},BEDROCK_MODEL_ID=${BEDROCK_MODEL_ID},LOG_GROUP_NAME=${LOG_GROUP},EKS_CLUSTER_NAME=${CLUSTER_NAME},ARGOCD_SECRET_ARN=${SECRET_ARN},ARGOCD_SERVER_URL=,ENABLE_ARGOCD=false,MAX_AGENT_ITERATIONS=${MAX_AGENT_ITERATIONS}}"
+ENV_VARS="Variables={SNS_TOPIC_ARN=${SNS_TOPIC_ARN},BEDROCK_MODEL_ID=${BEDROCK_MODEL_ID},LOG_GROUP_NAME=${LOG_GROUP},EKS_CLUSTER_NAME=${CLUSTER_NAME},ARGOCD_SECRET_ARN=${SECRET_ARN},ARGOCD_SERVER_URL=,ENABLE_ARGOCD=false,MAX_AGENT_ITERATIONS=${MAX_AGENT_ITERATIONS},DEDUP_TABLE=${DEDUP_TABLE},DEDUP_TTL_SECONDS=${DEDUP_TTL_SECONDS}}"
 VPC_CONFIG="SubnetIds=${SUBNET_CSV},SecurityGroupIds=${LAMBDA_SG}"
 
-# ── 5. Create or update the function ─────────────────────────────────────────
+# ── 6. Create or update the function ─────────────────────────────────────────
 if aws lambda get-function --function-name "$FUNCTION_NAME" --region "$REGION" >/dev/null 2>&1; then
   echo "==> Updating existing function code + config"
   aws lambda update-function-code --function-name "$FUNCTION_NAME" --region "$REGION" \
@@ -166,7 +185,7 @@ FUNCTION_ARN="$(aws lambda get-function --function-name "$FUNCTION_NAME" --regio
   --query Configuration.FunctionArn --output text)"
 echo "    function: $FUNCTION_ARN"
 
-# ── 6. Allow CloudWatch Logs to invoke the function ──────────────────────────
+# ── 7. Allow CloudWatch Logs to invoke the function ──────────────────────────
 echo "==> Granting CloudWatch Logs invoke permission"
 aws lambda remove-permission --function-name "$FUNCTION_NAME" --region "$REGION" \
   --statement-id AllowCloudWatchLogsInvoke 2>/dev/null || true
@@ -174,19 +193,19 @@ aws lambda add-permission --function-name "$FUNCTION_NAME" --region "$REGION" \
   --statement-id AllowCloudWatchLogsInvoke --action lambda:InvokeFunction \
   --principal "logs.${REGION}.amazonaws.com" --source-arn "${LOG_GROUP_ARN}:*" >/dev/null
 
-# ── 7. Open EKS API (443) from the Lambda SG so its k8s tools work ────────────
+# ── 8. Open EKS API (443) from the Lambda SG so its k8s tools work ────────────
 echo "==> Ensuring EKS API ingress from Lambda SG"
 aws ec2 authorize-security-group-ingress --region "$REGION" --group-id "$CLUSTER_SG" \
   --ip-permissions "IpProtocol=tcp,FromPort=443,ToPort=443,UserIdGroupPairs=[{GroupId=${LAMBDA_SG},Description=HTTPS from log-intel Lambda}]" \
   2>/dev/null || echo "    (ingress already present)"
 
-# ── 8. EKS access entry (role -> read-only group; RBAC binding ships via ArgoCD)
+# ── 9. EKS access entry (role -> read-only group; RBAC binding ships via ArgoCD)
 echo "==> Ensuring EKS access entry"
 aws eks create-access-entry --region "$REGION" --cluster-name "$CLUSTER_NAME" \
   --principal-arn "$ROLE_ARN" --kubernetes-groups log-intel-readers --type STANDARD \
   2>/dev/null || echo "    (access entry already present)"
 
-# ── 9. Subscription filter: pod-logs -> Lambda on anomaly lines ──────────────
+# ── 10. Subscription filter: pod-logs -> Lambda on anomaly lines ─────────────
 echo "==> Wiring log subscription filter on $LOG_GROUP"
 aws logs put-subscription-filter --region "$REGION" \
   --log-group-name "$LOG_GROUP" --filter-name "${PREFIX}-anomaly-filter" \
