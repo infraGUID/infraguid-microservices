@@ -1,10 +1,5 @@
 name: CI/CD - agent-service
 
-# Pull request to main  -> validate only (SAST -> SCA -> build image + Trivy),
-#                          then post a summary comment. Nothing is published.
-# Merge to main         -> nothing runs (no push trigger by design).
-# workflow_dispatch     -> the only path that publishes: version guard -> the same
-#                          validation -> push image to ECR -> push git tag -> CD.
 on:
   pull_request:
     branches: [main]
